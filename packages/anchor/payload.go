@@ -43,7 +43,7 @@ type Payload struct {
 func NewPayload(version uint8, childTangleID, lastStampID, childMessageID, merkleRoot []byte) *Payload {
 	return &Payload{
 		Version:        version,
-		ChildTangleID:  childMessageID,
+		ChildTangleID:  childTangleID,
 		LastStampID:    lastStampID,
 		ChildMessageID: childMessageID,
 		MerkleRoot:     merkleRoot,
