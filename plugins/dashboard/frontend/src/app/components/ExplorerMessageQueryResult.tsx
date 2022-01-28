@@ -14,6 +14,7 @@ import {BasicPayload} from 'app/components/BasicPayload'
 import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
 import {ChatPayload} from 'app/components/ChatPayload'
+import {AnchorPayload} from 'app/components/AnchorPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
 import {StatementPayload} from "app/components/StatemenetPayload";
 import {resolveBase58BranchID} from "app/utils/branch";
@@ -69,6 +70,8 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Faucet:
             case PayloadType.Chat:
                 return <ChatPayload/>
+            case PayloadType.Anchor:
+                return <AnchorPayload/>
             default:
                 return <BasicPayload/>
         }

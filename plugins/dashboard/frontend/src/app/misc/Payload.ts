@@ -5,6 +5,7 @@ export enum PayloadType {
     Statement = 3,
     Drng = 111,
     Chat = 989,
+    Anchor = 889
 }
 
 export enum DrngSubtype {
@@ -16,6 +17,15 @@ export enum DrngSubtype {
 export class BasicPayload {
     content_title: string;
     content: string;
+}
+
+// DrngPayload
+export class AnchorPayload {
+    version: number;
+    childTangleID: string;
+    lastStampID: string;
+    childMessageID: string;
+    merkleRoot: string;
 }
 
 // DrngPayload
@@ -158,6 +168,8 @@ export function getPayloadType(p: number){
             return "Faucet"
         case PayloadType.Chat:
             return "Chat"
+        case PayloadType.Anchor:
+            return "Anchor"
         default:
             return "Unknown"
     }

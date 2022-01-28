@@ -9,7 +9,8 @@ import {
     Output,
     PayloadType,
     SigLockedSingleOutput,
-    TransactionPayload
+    TransactionPayload,
+    AnchorPayload
 } from "app/misc/Payload";
 import * as React from "react";
 import {Link} from 'react-router-dom';
@@ -544,6 +545,9 @@ export class ExplorerStore {
                 break;
             case PayloadType.Transaction:
                 this.payload = msg.payload as TransactionPayload
+                break;
+            case PayloadType.Anchor:
+                this.payload = msg.payload as AnchorPayload
                 break;
             case PayloadType.Data:
                 this.payload = msg.payload as BasicPayload

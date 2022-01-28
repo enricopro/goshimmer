@@ -1,8 +1,12 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/marshalutil"
+	"encoding/hex"
 
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/mr-tron/base58/base58"
+
+	"github.com/iotaledger/goshimmer/packages/anchor"
 	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
@@ -122,6 +126,15 @@ func ProcessPayload(p payload.Payload) interface{} {
 			From:    chatPayload.From,
 			To:      chatPayload.To,
 			Message: chatPayload.Message,
+		}
+	case anchor.Type:
+		anchorPayload := p.(*anchor.Payload)
+		return jsonmodels.Anchor{
+			Version:        anchorPayload.Version,
+			ChildTangleID:  base58.Encode(anchorPayload.ChildTangleID),
+			LastStampID:    base58.Encode(anchorPayload.LastStampID),
+			ChildMessageID: hex.EncodeToString(anchorPayload.ChildMessageID),
+			MerkleRoot:     base58.Encode(anchorPayload.MerkleRoot),
 		}
 	default:
 		// unknown payload
