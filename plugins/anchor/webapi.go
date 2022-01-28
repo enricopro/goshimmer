@@ -54,8 +54,7 @@ func verify(proof *jsonmodels.Proof) (v bool, err error) {
 	if err != nil {
 		return
 	}
-	h.Write(t)
-	leave := h.Sum(nil)
+	leave := merkle.LeafHash(t, h)
 
 	r := merkleRoot(proof.StampID)
 	if r == nil {
@@ -120,7 +119,7 @@ func SendAnchorMessage(c echo.Context) error {
 	lastAnchor = msg.ID()
 	storageMutex.Lock()
 	defer storageMutex.Unlock()
-	storage[hex.EncodeToString(anchorPayload.LastStampID)] = msg.ID()
+	storage[hex.EncodeToString(anchorPayload.ChildMessageID)] = msg.ID()
 
 	return c.JSON(http.StatusOK, jsonmodels.AnchorResponse{MessageID: msg.ID().Base58()})
 }

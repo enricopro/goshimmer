@@ -1,6 +1,7 @@
 package anchor
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -161,7 +162,7 @@ func (p *Payload) String() string {
 		stringify.StructField("version", p.Version),
 		stringify.StructField("ChildTangleID", base58.Encode(p.ChildTangleID)),
 		stringify.StructField("LastStampID", base58.Encode(p.LastStampID)),
-		stringify.StructField("ChildMessageID", base58.Encode(p.ChildMessageID)),
+		stringify.StructField("ChildMessageID", hex.EncodeToString(p.ChildMessageID)),
 		stringify.StructField("MerkleRoot", base58.Encode(p.MerkleRoot)),
 	)
 }
