@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	lastAnchor   tangle.MessageID
+	lastAnchor   map[string]tangle.MessageID
 	storage      map[string]tangle.MessageID
 	storageMutex sync.RWMutex
 )
@@ -25,6 +25,7 @@ func configureWebAPI() {
 	deps.Server.POST("anchor", SendAnchorMessage)
 	deps.Server.GET("anchor:ID", MessageIDFromChildMessageID)
 	deps.Server.POST("proofofinclusion/verify", Verify)
+	lastAnchor = make(map[string]tangle.MessageID)
 	storage = make(map[string]tangle.MessageID)
 }
 
@@ -109,14 +110,16 @@ func SendAnchorMessage(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.AnchorResponse{Error: err.Error()})
 	}
-	anchorPayload.LastStampID = lastAnchor[:]
+	key := hex.EncodeToString(anchorPayload.ChildTangleID)
+	lastStampID := lastAnchor[key]
+	anchorPayload.LastStampID = lastStampID[:]
 	Plugin.LogInfo(anchorPayload)
 
 	msg, err := deps.Tangle.IssuePayload(anchorPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.AnchorResponse{Error: err.Error()})
 	}
-	lastAnchor = msg.ID()
+	lastAnchor[key] = msg.ID()
 	storageMutex.Lock()
 	defer storageMutex.Unlock()
 	storage[hex.EncodeToString(anchorPayload.ChildMessageID)] = msg.ID()
