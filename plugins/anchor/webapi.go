@@ -23,7 +23,7 @@ var (
 
 func configureWebAPI() {
 	deps.Server.POST("anchor", SendAnchorMessage)
-	deps.Server.GET("anchor:ID", MessageIDFromChildMessageID)
+	deps.Server.GET("anchors/:ID", MessageIDFromChildMessageID)
 	deps.Server.POST("proofofinclusion/verify", Verify)
 	lastAnchor = make(map[string]tangle.MessageID)
 	storage = make(map[string]tangle.MessageID)
@@ -91,7 +91,6 @@ func merkleRoot(stampID string) *jsonmodels.AnchorResponse {
 
 func MessageIDFromChildMessageID(c echo.Context) error {
 	cmID := c.Param("ID")
-
 	resp := merkleRoot(cmID)
 	if resp == nil {
 		return c.JSON(http.StatusNotFound, jsonmodels.AnchorResponse{Error: "AnchorID not found"})
