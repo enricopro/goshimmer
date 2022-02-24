@@ -53,7 +53,7 @@ jobs:
           build-args: |
             CUSTOM_SNAPSHOT_URL=${{github.event.inputs.snapshotUrl}}
             DEFAULT_SNAPSHOT_URL=https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/feature/snapshot.bin
-            REMOTE_DEBUGGING=1
+            REMOTE_DEBUGGING=0
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,mode=max,dest=/tmp/.buildx-cache-new
 
@@ -91,6 +91,7 @@ jobs:
           POW_DIFFICULTY: '${{github.event.inputs.powDifficulty}}'
           SCHEDULER_RATE: '${{github.event.inputs.schedulerRate}}'
           SCHEDULER_BUFFER_SIZE: '${{github.event.inputs.schedulerBufferSize}}'
+          SLACK_NOTIFICATION_WEBHOOK: '${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}'
         run: |
           export NETWORK_VERSION=$((16#$(git rev-parse --short "$COMMIT_SHA")%1000000000+1000))
           ./deploy/ansible/run.sh feature.yml

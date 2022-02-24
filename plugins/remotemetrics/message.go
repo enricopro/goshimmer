@@ -43,11 +43,12 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
 			record.StrongEdgeCount = weakParentsCount
 		}
-		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
-			record.StrongEdgeCount = len(message.ParentsByType(tangle.LikeParentType))
+		if likeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); likeParentsCount > 0 {
+			record.StrongEdgeCount = len(message.ParentsByType(tangle.ShallowLikeParentType))
 		}
 
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			record.ReceivedTimestamp = messageMetadata.ReceivedTime()
 			record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 			record.DroppedTimestamp = messageMetadata.DiscardedTime()
 			record.BookedTimestamp = messageMetadata.BookedTime()
@@ -69,8 +70,9 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 			} else if !record.DroppedTimestamp.IsZero() {
 				scheduleDoneTime = record.DroppedTimestamp
 			}
-			record.DeltaScheduled = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
-			record.ProcessingTime = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
+			record.DeltaScheduledIssued = scheduleDoneTime.Sub(record.IssuedTimestamp).Nanoseconds()
+			record.DeltaScheduledReceived = scheduleDoneTime.Sub(messageMetadata.ReceivedTime()).Nanoseconds()
+			record.DeltaReceivedIssued = messageMetadata.ReceivedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 			record.SchedulingTime = scheduleDoneTime.Sub(messageMetadata.QueuedTime()).Nanoseconds()
 		})
 	})
@@ -121,10 +123,13 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		record.IssuedTimestamp = message.IssuingTime()
 		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
 		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
-			record.StrongEdgeCount = weakParentsCount
+			record.WeakEdgeCount = weakParentsCount
 		}
-		if likeParentsCount := len(message.ParentsByType(tangle.LikeParentType)); likeParentsCount > 0 {
-			record.StrongEdgeCount = len(message.ParentsByType(tangle.LikeParentType))
+		if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
+			record.ShallowLikeEdgeCount = shallowLikeParentsCount
+		}
+		if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
+			record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
 		}
 	})
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {

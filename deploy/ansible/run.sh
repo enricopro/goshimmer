@@ -22,6 +22,7 @@ networkVersion=$NETWORK_VERSION
 grafanaAdminPassword=$GRAFANA_ADMIN_PASSWORD
 elkElasticUser=$ELK_ELASTIC_USER
 elkElasticPassword=$ELK_ELASTIC_PASSWORD
+slackNotificationWebhook=$SLACK_NOTIFICATION_WEBHOOK
 powDifficulty=$POW_DIFFICULTY
 schedulerRate=$SCHEDULER_RATE
 schedulerBufferSize=$SCHEDULER_BUFFER_SIZE
