@@ -47,6 +47,8 @@ services:
       --node.peerDBDirectory=/tmp/peerdb
       --logger.level=info
       --logger.disableEvents=false
+      --messageLayer.timeSinceConfirmationThreshold=15m
+      --messageLayer.tangleTimeWindow=10m
       --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213
       --drng.pollen.instanceID=1
       --drng.pollen.threshold=3
