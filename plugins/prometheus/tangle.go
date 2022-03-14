@@ -17,10 +17,6 @@ var (
 	sinceIssuedTotalTime                      *prometheus.GaugeVec
 	initialSchedulerTotalTime                 prometheus.Gauge
 	schedulerTotalTime                        prometheus.Gauge
-	schedulerTickTotalTime                    prometheus.Gauge
-	schedulerTickCount                        prometheus.Gauge
-	messageProcessTriggerTime                 prometheus.Gauge
-	messageProcessTriggerCount                prometheus.Gauge
 	parentsCount                              *prometheus.GaugeVec
 	initialMissingMessagesCountDB             prometheus.Gauge
 	messageMissingCountDB                     prometheus.Gauge
@@ -110,26 +106,6 @@ func registerTangleMetrics() {
 		Help: "total time the scheduled messages spend in the scheduling queue since the node start",
 	})
 
-	schedulerTickTotalTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_scheduler_tick_total_time",
-		Help: "total time the scheduled took to perform scheduling",
-	})
-
-	schedulerTickCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_scheduler_tick_count",
-		Help: "total number the scheduled performed scheduling",
-	})
-
-	messageProcessTriggerTime = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_processed_trigger_time",
-		Help: "total time it took to process message triggered event in approvalweightmanager",
-	})
-
-	messageProcessTriggerCount = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "tangle_message_processed_trigger_count",
-		Help: "total number of times that process message event was triggered  in approvalweightmanager",
-	})
-
 	messageMissingCountDB = prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: "tangle_message_missing_initial_count_db",
 		Help: "number of missing messages in the node's database at the start of the node",
@@ -198,10 +174,6 @@ func registerTangleMetrics() {
 	registry.MustRegister(sinceReceivedTotalTime)
 	registry.MustRegister(initialSchedulerTotalTime)
 	registry.MustRegister(schedulerTotalTime)
-	registry.MustRegister(schedulerTickTotalTime)
-	registry.MustRegister(schedulerTickCount)
-	registry.MustRegister(messageProcessTriggerTime)
-	registry.MustRegister(messageProcessTriggerCount)
 	registry.MustRegister(initialMissingMessagesCountDB)
 	registry.MustRegister(messageMissingCountDB)
 	registry.MustRegister(messageRequestCount)
@@ -250,10 +222,6 @@ func collectTangleMetrics() {
 
 	initialSchedulerTotalTime.Set(float64(metrics.InitialSchedulerTime()))
 	schedulerTotalTime.Set(float64(metrics.SchedulerTime()))
-	schedulerTickTotalTime.Set(float64(metrics.SchedulerTickTime()))
-	schedulerTickCount.Set(float64(metrics.SchedulerTickCount()))
-	messageProcessTriggerTime.Set(float64(metrics.MessageProcessTriggerTime()))
-	messageProcessTriggerCount.Set(float64(metrics.MessageProcessTriggerCount()))
 	initialMissingMessagesCountDB.Set(float64(metrics.InitialMessageMissingCountDB()))
 	messageMissingCountDB.Set(float64(metrics.MessageMissingCountDB()))
 	messageRequestCount.Set(float64(metrics.MessageRequestQueueSize()))

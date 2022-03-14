@@ -24,12 +24,8 @@ const (
 	MinMana float64 = 1.0
 )
 
-var (
-	// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
-	ErrNotRunning      = errors.New("scheduler stopped")
-	SchedulerTickTime  time.Duration
-	SchedulerTickCount int64
-)
+// ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
+var ErrNotRunning = errors.New("scheduler stopped")
 
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
@@ -497,8 +493,6 @@ loop:
 		// every rate time units
 		case <-s.ticker.C:
 			// TODO: pause the ticker, if there are no ready messages
-			schedulerTickStart := time.Now()
-
 			if msg := s.schedule(); msg != nil {
 				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.SetScheduled(true) {
@@ -506,8 +500,7 @@ loop:
 					}
 				})
 			}
-			SchedulerTickTime += time.Since(schedulerTickStart)
-			SchedulerTickCount += 1
+
 		// on close, exit the loop
 		case <-s.shutdownSignal:
 			break loop

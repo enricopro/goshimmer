@@ -15,9 +15,6 @@ const (
 	minVoterWeight float64 = 0.000000000000001
 )
 
-var MessageProcessTriggerTime time.Duration
-var MessageProcessTriggerCount int64
-
 // region ApprovalWeightManager ////////////////////////////////////////////////////////////////////////////////////////
 
 // ApprovalWeightManager is a Tangle component to keep track of relative weights of branches and markers so that
@@ -55,10 +52,8 @@ func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.updateBranchVoters(message)
 		a.updateSequenceVoters(message)
-		startTime := time.Now()
+
 		a.Events.MessageProcessed.Trigger(messageID)
-		MessageProcessTriggerTime += time.Since(startTime)
-		MessageProcessTriggerCount++
 	})
 }
 

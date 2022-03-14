@@ -107,8 +107,7 @@ var (
 
 	// sum of time messages spend in the queue (since start of the node).
 	sumSchedulerBookedTime time.Duration
-
-	schedulerTimeMutex syncutils.RWMutex
+	schedulerTimeMutex     syncutils.RWMutex
 )
 
 // other metrics stored since the start of a node.
@@ -265,30 +264,6 @@ func SchedulerTime() (result int64) {
 	schedulerTimeMutex.RLock()
 	defer schedulerTimeMutex.RUnlock()
 	result = sumSchedulerBookedTime.Milliseconds()
-	return
-}
-
-// SchedulerTickTime returns the total time it took to run scheduler ticks.
-func SchedulerTickTime() (result int64) {
-	schedulerTimeMutex.RLock()
-	defer schedulerTimeMutex.RUnlock()
-	result = tangle.SchedulerTickTime.Milliseconds()
-	return
-}
-
-func SchedulerTickCount() (result int64) {
-	result = tangle.SchedulerTickCount
-	return
-}
-
-// MessageProcessTriggerTime returns the total time it took to process trigger at the end of booking.
-func MessageProcessTriggerTime() (result int64) {
-	result = tangle.MessageProcessTriggerTime.Milliseconds()
-	return
-}
-
-func MessageProcessTriggerCount() (result int64) {
-	result = tangle.MessageProcessTriggerCount
 	return
 }
 

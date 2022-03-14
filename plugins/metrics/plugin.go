@@ -179,8 +179,6 @@ func registerLocalMetrics() {
 		// Consume should release cachedMessageMetadata
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.Scheduled() {
-				schedulerTimeMutex.Lock()
-				defer schedulerTimeMutex.Unlock()
 				sumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.BookedTime())
 
 				sumTimesSinceReceived[Scheduler] += msgMetaData.ScheduledTime().Sub(msgMetaData.ReceivedTime())
