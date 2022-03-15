@@ -408,7 +408,7 @@ func (s *Scheduler) schedule() *Message {
 			} else {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
 				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
+				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID()) / s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 				// find the first node that will be allowed to schedule a message
 				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
 					rounds = r
@@ -423,7 +423,6 @@ func (s *Scheduler) schedule() *Message {
 			break
 		}
 	}
-
 	// if there is no node with a ready message, we cannot schedule anything
 	if schedulingNode == nil {
 		return nil
@@ -432,7 +431,7 @@ func (s *Scheduler) schedule() *Message {
 	if rounds > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*s.accessManaCache.GetCachedMana(q.NodeID()))
+			s.updateDeficit(q.NodeID(), float64(rounds)*s.accessManaCache.GetCachedMana(q.NodeID())/s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc())
 
 			q = s.buffer.Next()
 			if q == start {
@@ -443,7 +442,7 @@ func (s *Scheduler) schedule() *Message {
 
 	// increment the deficit for all nodes before schedulingNode one more time
 	for q := start; q != schedulingNode; q = s.buffer.Next() {
-		s.updateDeficit(q.NodeID(), s.accessManaCache.GetCachedMana(q.NodeID()))
+		s.updateDeficit(q.NodeID(), s.accessManaCache.GetCachedMana(q.NodeID())/s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc())
 	}
 
 	// remove the message from the buffer and adjust node's deficit
