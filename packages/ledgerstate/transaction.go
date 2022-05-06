@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -551,11 +550,11 @@ func (t *TransactionEssence) Bytes() []byte {
 		Write(t.inputs).
 		Write(t.outputs)
 
-	if !typeutils.IsInterfaceNil(t.payload) {
-		marshalUtil.Write(t.payload)
-	} else {
-		marshalUtil.WriteUint32(0)
-	}
+	// if !typeutils.IsInterfaceNil(t.payload) {
+	// 	marshalUtil.Write(t.payload)
+	// } else {
+	marshalUtil.WriteUint32(0)
+	// }
 
 	return marshalUtil.Bytes()
 }
