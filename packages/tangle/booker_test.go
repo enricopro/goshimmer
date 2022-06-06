@@ -3936,6 +3936,23 @@ func TestFutureConeDislike(t *testing.T) {
 	}
 }
 
+func TestGuava(t *testing.T) {
+	debug.SetEnabled(true)
+
+	tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("1", 2),
+	)
+
+	tangle.Setup()
+
+	testFramework.CreateMessage("Message.G", WithStrongParents("Genesis"), WithInputs("1"), WithOutput("2", 1), WithOutput("3", 1))
+	testFramework.IssueMessages("Message.G").WaitUntilAllTasksProcessed()
+}
+
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	debug.SetEnabled(true)
 	const layersNum = 127
