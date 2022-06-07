@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/debug"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -3936,7 +3938,7 @@ func TestFutureConeDislike(t *testing.T) {
 	}
 }
 
-func TestGuava(t *testing.T) {
+func TestGuavaForkLowestFirst(t *testing.T) {
 	debug.SetEnabled(true)
 
 	tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
@@ -3949,8 +3951,153 @@ func TestGuava(t *testing.T) {
 
 	tangle.Setup()
 
-	testFramework.CreateMessage("Message.G", WithStrongParents("Genesis"), WithInputs("1"), WithOutput("2", 1), WithOutput("3", 1))
-	testFramework.IssueMessages("Message.G").WaitUntilAllTasksProcessed()
+	testFramework.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure(func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		fmt.Printf("============================\nTXID: %s\nADDED CONFLICT ID: %s\n", event.TransactionID, event.AddedBranchID)
+		_ = event.RemovedBranchIDs.ForEach(func(branchID utxo.TransactionID) (err error) {
+			fmt.Printf("REMOVED CONFLICT ID: %s\n", branchID)
+
+			return nil
+		})
+	}))
+
+	testFramework.CreateMessage("Message.1", WithStrongParents("Genesis"), WithInputs("1"), WithOutput("2", 1), WithOutput("3", 1))
+
+	testFramework.CreateMessage("Message.2*", WithStrongParents("Message.1"), WithInputs("2"), WithOutput("4", 1))
+	testFramework.CreateMessage("Message.2", WithStrongParents("Message.1"), WithInputs("2"), WithOutput("5", 1))
+	testFramework.CreateMessage("Message.3", WithStrongParents("Message.1"), WithInputs("3"), WithOutput("6", 1))
+	testFramework.CreateMessage("Message.3*", WithStrongParents("Message.1"), WithInputs("3"), WithOutput("7", 1))
+
+	testFramework.CreateMessage("Message.5", WithStrongParents("Message.2", "Message.3"), WithInputs("5", "6"), WithOutput("8", 2))
+	testFramework.CreateMessage("Message.6", WithStrongParents("Message.2", "Message.3"), WithInputs("5", "6"), WithOutput("8*", 2))
+
+	testFramework.IssueMessages("Message.1", "Message.2", "Message.3", "Message.5").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1": utxo.NewTransactionIDs(),
+		"Message.2": utxo.NewTransactionIDs(),
+		"Message.3": utxo.NewTransactionIDs(),
+		"Message.5": utxo.NewTransactionIDs(),
+	})
+
+	testFramework.RegisterBranchID("Message.2", "Message.2")
+	testFramework.RegisterBranchID("Message.2*", "Message.2*")
+	testFramework.IssueMessages("Message.2*").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1":  utxo.NewTransactionIDs(),
+		"Message.2":  testFramework.BranchIDs("Message.2"),
+		"Message.2*": testFramework.BranchIDs("Message.2*"),
+		"Message.3":  utxo.NewTransactionIDs(),
+		"Message.5":  testFramework.BranchIDs("Message.2"),
+	})
+
+	testFramework.RegisterBranchID("Message.3", "Message.3")
+	testFramework.RegisterBranchID("Message.3*", "Message.3*")
+	testFramework.IssueMessages("Message.3*").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1":  utxo.NewTransactionIDs(),
+		"Message.2":  testFramework.BranchIDs("Message.2"),
+		"Message.2*": testFramework.BranchIDs("Message.2*"),
+		"Message.3":  testFramework.BranchIDs("Message.3"),
+		"Message.3*": testFramework.BranchIDs("Message.3*"),
+		"Message.5":  testFramework.BranchIDs("Message.2", "Message.3"),
+	})
+
+	testFramework.RegisterBranchID("Message.5", "Message.5")
+	testFramework.RegisterBranchID("Message.6", "Message.6")
+	testFramework.IssueMessages("Message.6").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1":  utxo.NewTransactionIDs(),
+		"Message.2":  testFramework.BranchIDs("Message.2"),
+		"Message.2*": testFramework.BranchIDs("Message.2*"),
+		"Message.3":  testFramework.BranchIDs("Message.3"),
+		"Message.3*": testFramework.BranchIDs("Message.3*"),
+		"Message.5":  testFramework.BranchIDs("Message.5"),
+		"Message.6":  testFramework.BranchIDs("Message.2", "Message.3", "Message.6"),
+	})
+}
+
+func TestGuavaForkHighestFirst(t *testing.T) {
+	debug.SetEnabled(true)
+
+	tangle := NewTestTangle(WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("1", 2),
+	)
+
+	tangle.Setup()
+
+	testFramework.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure(func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		fmt.Printf("============================\nTXID: %s\nADDED CONFLICT ID: %s\n", event.TransactionID, event.AddedBranchID)
+		_ = event.RemovedBranchIDs.ForEach(func(branchID utxo.TransactionID) (err error) {
+			fmt.Printf("REMOVED CONFLICT ID: %s\n", branchID)
+
+			return nil
+		})
+	}))
+
+	testFramework.CreateMessage("Message.1", WithStrongParents("Genesis"), WithInputs("1"), WithOutput("2", 1), WithOutput("3", 1))
+
+	testFramework.CreateMessage("Message.2*", WithStrongParents("Message.1"), WithInputs("2"), WithOutput("4", 1))
+	testFramework.CreateMessage("Message.2", WithStrongParents("Message.1"), WithInputs("2"), WithOutput("5", 1))
+	testFramework.CreateMessage("Message.3", WithStrongParents("Message.1"), WithInputs("3"), WithOutput("6", 1))
+	testFramework.CreateMessage("Message.3*", WithStrongParents("Message.1"), WithInputs("3"), WithOutput("7", 1))
+
+	testFramework.CreateMessage("Message.5", WithStrongParents("Message.2", "Message.3"), WithInputs("5", "6"), WithOutput("8", 2))
+	testFramework.CreateMessage("Message.6", WithStrongParents("Message.2", "Message.3"), WithInputs("5", "6"), WithOutput("8*", 2))
+
+	testFramework.IssueMessages("Message.1", "Message.2", "Message.3", "Message.5").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1": utxo.NewTransactionIDs(),
+		"Message.2": utxo.NewTransactionIDs(),
+		"Message.3": utxo.NewTransactionIDs(),
+		"Message.5": utxo.NewTransactionIDs(),
+	})
+
+	testFramework.RegisterBranchID("Message.5", "Message.5")
+	testFramework.RegisterBranchID("Message.6", "Message.6")
+	testFramework.IssueMessages("Message.6").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1": utxo.NewTransactionIDs(),
+		"Message.2": utxo.NewTransactionIDs(),
+		"Message.3": utxo.NewTransactionIDs(),
+		"Message.5": testFramework.BranchIDs("Message.5"),
+		"Message.6": testFramework.BranchIDs("Message.6"),
+	})
+
+	testFramework.RegisterBranchID("Message.2", "Message.2")
+	testFramework.RegisterBranchID("Message.2*", "Message.2*")
+	testFramework.IssueMessages("Message.2*").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1":  utxo.NewTransactionIDs(),
+		"Message.2":  testFramework.BranchIDs("Message.2"),
+		"Message.2*": testFramework.BranchIDs("Message.2*"),
+		"Message.3":  utxo.NewTransactionIDs(),
+		"Message.5":  testFramework.BranchIDs("Message.5"),
+		"Message.6":  testFramework.BranchIDs("Message.6"),
+	})
+
+	testFramework.RegisterBranchID("Message.3", "Message.3")
+	testFramework.RegisterBranchID("Message.3*", "Message.3*")
+	testFramework.IssueMessages("Message.3*").WaitUntilAllTasksProcessed()
+
+	checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
+		"Message.1":  utxo.NewTransactionIDs(),
+		"Message.2":  testFramework.BranchIDs("Message.2"),
+		"Message.2*": testFramework.BranchIDs("Message.2*"),
+		"Message.3":  testFramework.BranchIDs("Message.3"),
+		"Message.3*": testFramework.BranchIDs("Message.3*"),
+		"Message.5":  testFramework.BranchIDs("Message.5"),
+		"Message.6":  testFramework.BranchIDs("Message.6"),
+	})
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
