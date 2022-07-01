@@ -54,6 +54,7 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	}
 
 	ChildTangleID := NotarizationParameters.AnchorChildID
+	enabled := NotarizationParameters.AnchorEnabled
 
 	c := client.NewGoShimmerAPI(NotarizationParameters.AnchorParentAPI)
 
@@ -78,7 +79,9 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		}
 	})
 
-	notarizationManager.Events.EpochCommittable.Hook(onEpochCommitable)
+	if enabled {
+		notarizationManager.Events.EpochCommittable.Hook(onEpochCommitable)
+	}
 
 	// attach mana plugin event after notarization manager has been initialized
 	notarizationManager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)

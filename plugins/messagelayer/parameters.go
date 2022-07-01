@@ -80,6 +80,8 @@ type NotarizationParameterDefinition struct {
 	AnchorParentAPI string `default:"http://localhost:8070" usage:"the bind address on which the parent can be accessed from"`
 	// AnchorChildID defines the string identifier of the child
 	AnchorChildID string `default:"IOTA 2.0" usage:"the string identifier of the child"`
+	// AnchorEnabled is the toggle to nable the anchoring
+	AnchorEnabled bool `default:"false" usage:"toggle to enable the anchoring"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.
