@@ -26,7 +26,7 @@ const (
 // Manager is the notarization manager.
 type Manager struct {
 	tangle                      *tangle.Tangle
-	epochCommitmentFactory      *EpochCommitmentFactory
+	EpochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
 	pendingConflictsCounters    map[epoch.Index]uint64
@@ -47,7 +47,7 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle
 
 	new = &Manager{
 		tangle:                   t,
-		epochCommitmentFactory:   epochCommitmentFactory,
+		EpochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: make(map[epoch.Index]uint64),
 		log:                      options.Log,
 		options:                  options,
@@ -107,12 +107,12 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
-		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
+		m.EpochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
+		err := m.EpochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
 		if err != nil {
 			m.log.Error(err)
 		}
-		err = m.epochCommitmentFactory.updateManaLeaf(outputWithMetadata, true)
+		err = m.EpochCommitmentFactory.updateManaLeaf(outputWithMetadata, true)
 		if err != nil {
 			m.log.Error(err)
 		}
@@ -121,11 +121,11 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		epochDiff := snapshot.EpochDiffs[ei]
 		for _, spentOutputWithMetadata := range epochDiff.Spent() {
 			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Delete(spentOutputIDBytes)
-			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
+			m.EpochCommitmentFactory.storage.ledgerstateStorage.Delete(spentOutputIDBytes)
+			if has, _ := m.EpochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
 				panic("epoch diff spends an output not contained in the ledger state")
 			}
-			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
+			_, err := m.EpochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
 			if err != nil {
 				panic("could not delete leaf from state root tree")
 			}
@@ -133,8 +133,8 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 		for _, createdOutputWithMetadata := range epochDiff.Created() {
 			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
-			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
+			m.EpochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
+			_, err := m.EpochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
 			if err != nil {
 				panic("could not update leaf of state root tree")
 			}
@@ -142,21 +142,21 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	}
 
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.EpochCommitmentFactory.storage.setLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		panic("could not set last committed epoch index")
 	}
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.EpochCommitmentFactory.storage.setLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		panic("could not set last confirmed epoch index")
 	}
 
 	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
-	if err := m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
+	if err := m.EpochCommitmentFactory.storage.setAcceptanceEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
 		panic("could not set current epoch index")
 	}
 
-	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
+	m.EpochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
@@ -164,8 +164,8 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
-	latestCommittableEpoch, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
-	ecRecord = m.epochCommitmentFactory.loadECRecord(latestCommittableEpoch)
+	latestCommittableEpoch, err := m.EpochCommitmentFactory.storage.latestCommittableEpochIndex()
+	ecRecord = m.EpochCommitmentFactory.loadECRecord(latestCommittableEpoch)
 	if ecRecord == nil {
 		err = errors.Errorf("could not get latest commitment")
 	}
@@ -177,7 +177,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
 
-	return m.epochCommitmentFactory.storage.lastConfirmedEpochIndex()
+	return m.EpochCommitmentFactory.storage.lastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -190,7 +190,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
 		return
 	}
-	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
+	err := m.EpochCommitmentFactory.insertTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
@@ -206,14 +206,14 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
 		return
 	}
-	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
+	err := m.EpochCommitmentFactory.removeTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction)
-		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
+		m.EpochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
 	}
 }
 
@@ -325,13 +325,13 @@ func (m *Manager) OnAcceptanceTimeUpdated(newTime time.Time) {
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := epoch.IndexFromTime(newTime)
-	currentEpochIndex, err := m.epochCommitmentFactory.storage.acceptanceEpochIndex()
+	currentEpochIndex, err := m.EpochCommitmentFactory.storage.acceptanceEpochIndex()
 	if err != nil {
 		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
 		return
 	}
 	if ei > currentEpochIndex {
-		err = m.epochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
+		err = m.EpochCommitmentFactory.storage.setAcceptanceEpochIndex(ei)
 		if err != nil {
 			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
 			return
@@ -345,7 +345,7 @@ func (m *Manager) Shutdown() {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	m.epochCommitmentFactory.storage.shutdown()
+	m.EpochCommitmentFactory.storage.shutdown()
 }
 
 func (m *Manager) decreasePendingConflictCounter(ei epoch.Index) {
@@ -360,21 +360,21 @@ func (m *Manager) increasePendingConflictCounter(ei epoch.Index) {
 }
 
 func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
-	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
+	if err := m.EpochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
 
-	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
+	m.EpochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
 
 	return nil
 }
 
 func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
-	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
+	if err := m.EpochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
 		return err
 	}
 
-	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
+	m.EpochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
 
 	return nil
 }
@@ -385,7 +385,7 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 }
 
 func (m *Manager) allPastConflictsAreResolved(ei epoch.Index) (conflictsResolved bool) {
-	lastEI, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	lastEI, err := m.EpochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		return false
 	}
@@ -419,7 +419,7 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMus
 }
 
 func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
-	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	latestCommittable, err := m.EpochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		m.log.Errorf("could not get the latest committed epoch: %v", err)
 		return false
@@ -460,7 +460,7 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 	if epochForManaVector < 1 {
 		return
 	}
-	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
+	spent, created := m.EpochCommitmentFactory.loadDiffUTXOs(epochForManaVector)
 	m.Events.ManaVectorUpdate.Trigger(&ManaVectorUpdateEvent{
 		EI:               ei,
 		EpochDiffCreated: created,
@@ -469,7 +469,7 @@ func (m *Manager) triggerManaVectorUpdate(ei epoch.Index) {
 }
 
 func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
-	latestCommittable, err := m.epochCommitmentFactory.storage.latestCommittableEpochIndex()
+	latestCommittable, err := m.EpochCommitmentFactory.storage.latestCommittableEpochIndex()
 	if err != nil {
 		err = errors.Wrap(err, "could not obtain last committed epoch index")
 	}
@@ -480,18 +480,22 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) {
 
 		// reads the roots and store the ec
 		// rolls the state trees
-		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
+		if _, ecRecordErr := m.EpochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
 			m.log.Errorf("could not update commitments for epoch %d: %v", ei, ecRecordErr)
 			return
 		}
 
-		if err = m.epochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
+		if err = m.EpochCommitmentFactory.storage.setLatestCommittableEpochIndex(ei); err != nil {
 			m.log.Errorf("could not set last committed epoch: %v", err)
 			return
 		}
 
+		// unlock
+		m.epochCommitmentFactoryMutex.Unlock()
 		m.Events.EpochCommittable.Trigger(&EpochCommittableEvent{EI: ei})
 		m.triggerManaVectorUpdate(ei)
+		// lock again
+		m.epochCommitmentFactoryMutex.Lock()
 	}
 }
 

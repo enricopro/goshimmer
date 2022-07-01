@@ -1002,7 +1002,7 @@ func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFrame
 			t := block.IssuingTime()
 			ei = epoch.IndexFromTime(t)
 		})
-		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, msgID)
+		valid := m.EpochCommitmentFactory.VerifyTangleRoot(*p, msgID)
 		assert.Equal(t, result, valid, "block %s not included in epoch %s", alias, ei)
 	}
 }
@@ -1030,13 +1030,13 @@ func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTes
 		p, err := m.GetTransactionInclusionProof(txID)
 		require.NoError(t, err)
 
-		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
+		valid := m.EpochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
 		assert.Equal(t, result, valid, "transaction %s inclusion differs in epoch %s", alias, ei)
 	}
 }
 
 func assertEpochDiff(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, ei epoch.Index, expectedSpentAliases, expectedCreatedAliases []string) {
-	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	spent, created := m.EpochCommitmentFactory.loadDiffUTXOs(ei)
 	expectedSpentIDs := utxo.NewOutputIDs()
 	expectedCreatedIDs := utxo.NewOutputIDs()
 	actualSpentIDs := utxo.NewOutputIDs()

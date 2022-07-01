@@ -26,7 +26,7 @@ import (
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	EI                epoch.Index
-	tangleRoot        epoch.MerkleRoot
+	TangleRoot        epoch.MerkleRoot
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
 	manaRoot          epoch.MerkleRoot
@@ -57,6 +57,8 @@ type EpochCommitmentFactory struct {
 
 	// snapshotDepth defines how far back the ledgerstate is kept with respect to the latest committed epoch.
 	snapshotDepth int
+
+	ECRoots map[epoch.Index]*CommitmentRoots
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -76,6 +78,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle, sna
 		snapshotDepth:   snapshotDepth,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		ECRoots:         make(map[epoch.Index]*CommitmentRoots),
 	}
 }
 
@@ -90,21 +93,21 @@ func (f *EpochCommitmentFactory) ManaRoot() []byte {
 }
 
 // ECR retrieves the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, err error) {
+func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr epoch.ECR, cr *CommitmentRoots, err error) {
 	epochRoots, err := f.newEpochRoots(ei)
 	if err != nil {
-		return epoch.MerkleRoot{}, errors.Wrap(err, "ECR could not be created")
+		return epoch.MerkleRoot{}, nil, errors.Wrap(err, "ECR could not be created")
 	}
 
 	root := make([]byte, 0)
 	branch1 := make([]byte, 0)
 	branch2 := make([]byte, 0)
 
-	branch1Hashed := blake2b.Sum256(append(append(branch1, epochRoots.tangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
+	branch1Hashed := blake2b.Sum256(append(append(branch1, epochRoots.TangleRoot[:]...), epochRoots.stateMutationRoot[:]...))
 	branch2Hashed := blake2b.Sum256(append(append(branch2, epochRoots.stateRoot[:]...), epochRoots.manaRoot[:]...))
 	rootHashed := blake2b.Sum256(append(append(root, branch1Hashed[:]...), branch2Hashed[:]...))
 
-	return epoch.NewMerkleRoot(rootHashed[:]), nil
+	return epoch.NewMerkleRoot(rootHashed[:]), epochRoots, nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
@@ -233,7 +236,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		return ecRecord, nil
 	}
 	// We never committed this epoch before, create and roll to a new epoch.
-	ecr, ecrErr := f.ECR(ei)
+	ecr, cr, ecrErr := f.ECR(ei)
 	if ecrErr != nil {
 		return nil, ecrErr
 	}
@@ -248,6 +251,8 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		e.SetPrevEC(EC(prevECRecord))
 		ecRecord = e
 	})
+
+	f.ECRoots[ei] = cr
 
 	return ecRecord, nil
 }
@@ -357,7 +362,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 		EI:                ei,
 		stateRoot:         epoch.NewMerkleRoot(stateRoot),
 		manaRoot:          epoch.NewMerkleRoot(manaRoot),
-		tangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
+		TangleRoot:        epoch.NewMerkleRoot(commitmentTrees.tangleTree.Root()),
 		stateMutationRoot: epoch.NewMerkleRoot(commitmentTrees.stateMutationTree.Root()),
 	}
 

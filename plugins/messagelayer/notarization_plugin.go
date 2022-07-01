@@ -2,6 +2,7 @@ package messagelayer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
@@ -49,6 +50,20 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	if nodeSnapshot != nil {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
+
+	onEpochCommitable := event.NewClosure(func(event *notarization.EpochCommittableEvent) {
+		currentRoot := notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58()
+		if currentRoot != "11111111111111111111111111111111" {
+			fmt.Printf("################### HERE: Epoch Index %d ######################\n", event.EI)
+			// r, index, _ := GetLatestEC()
+			fmt.Println(notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58())
+		}
+
+		// fmt.Println(r.ECR().Base58(), r.EI(), index)
+	})
+
+	notarizationManager.Events.EpochCommittable.Hook(onEpochCommitable)
+
 	// attach mana plugin event after notarization manager has been initialized
 	notarizationManager.Events.ManaVectorUpdate.Hook(onManaVectorToUpdateClosure)
 }
