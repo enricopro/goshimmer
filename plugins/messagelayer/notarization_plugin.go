@@ -10,7 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -51,15 +53,29 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 
+	ChildTangleID := NotarizationParameters.AnchorChildID
+
+	c := client.NewGoShimmerAPI(NotarizationParameters.AnchorParentAPI)
+
 	onEpochCommitable := event.NewClosure(func(event *notarization.EpochCommittableEvent) {
 		currentRoot := notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58()
 		if currentRoot != "11111111111111111111111111111111" {
 			fmt.Printf("################### HERE: Epoch Index %d ######################\n", event.EI)
-			// r, index, _ := GetLatestEC()
 			fmt.Println(notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58())
-		}
 
-		// fmt.Println(r.ECR().Base58(), r.EI(), index)
+			ecr, _, _ := notarizationManager.EpochCommitmentFactory.ECR(event.EI)
+
+			anchorMsg := &jsonmodels.Anchor{
+				Version:        1,
+				ChildTangleID:  ChildTangleID,
+				LastStampID:    ChildTangleID,
+				ChildMessageID: ecr.Base58(),
+				MerkleRoot:     currentRoot,
+			}
+			if err := c.IssueAnchor(anchorMsg); err != nil {
+				Plugin.LogErrorf("error issuing anchor %s", err)
+			}
+		}
 	})
 
 	notarizationManager.Events.EpochCommittable.Hook(onEpochCommitable)

@@ -76,6 +76,10 @@ type NotarizationParameterDefinition struct {
 	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
 	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
 	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
+	// AnchorParentAPI defines the Anchor Parent Tangle API
+	AnchorParentAPI string `default:"http://localhost:8070" usage:"the bind address on which the parent can be accessed from"`
+	// AnchorChildID defines the string identifier of the child
+	AnchorChildID string `default:"IOTA 2.0" usage:"the string identifier of the child"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.
