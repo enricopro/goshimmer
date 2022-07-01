@@ -2,6 +2,7 @@ package messagelayer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -9,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/epoch"
@@ -53,25 +55,27 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 
-	ChildTangleID := NotarizationParameters.AnchorChildID
+	h, _ := blake2b.New256(nil)
+	h.Write([]byte(NotarizationParameters.AnchorChildID))
+	ChildTangleID := hex.EncodeToString(h.Sum(nil))
 	enabled := NotarizationParameters.AnchorEnabled
 
 	c := client.NewGoShimmerAPI(NotarizationParameters.AnchorParentAPI)
 
 	onEpochCommitable := event.NewClosure(func(event *notarization.EpochCommittableEvent) {
-		currentRoot := notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58()
-		if currentRoot != "11111111111111111111111111111111" {
-			fmt.Printf("################### HERE: Epoch Index %d ######################\n", event.EI)
+		currentRoot := notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot
+		if currentRoot.Base58() != "11111111111111111111111111111111" {
+			fmt.Printf("################### Epoch Index %d ######################\n", event.EI)
 			fmt.Println(notarizationManager.EpochCommitmentFactory.ECRoots[event.EI].TangleRoot.Base58())
 
-			ecr, _, _ := notarizationManager.EpochCommitmentFactory.ECR(event.EI)
+			ecr, _, _ := GetLatestEC()
 
 			anchorMsg := &jsonmodels.Anchor{
 				Version:        1,
 				ChildTangleID:  ChildTangleID,
 				LastStampID:    ChildTangleID,
-				ChildMessageID: ecr.Base58(),
-				MerkleRoot:     currentRoot,
+				ChildMessageID: hex.EncodeToString(ecr.ECR().Bytes()),
+				MerkleRoot:     hex.EncodeToString(currentRoot.Bytes()),
 			}
 			if err := c.IssueAnchor(anchorMsg); err != nil {
 				Plugin.LogErrorf("error issuing anchor %s", err)
