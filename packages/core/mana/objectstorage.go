@@ -7,6 +7,9 @@ const (
 	// PrefixConsensus is the storage prefix for consensus mana storage.
 	PrefixConsensus
 
+	// PrefixConfirmedConsensus is the storage prefix for confirmed epoch consensus mana storage.
+	PrefixConfirmedConsensus
+
 	// PrefixAccessResearch is the storage prefix for research access mana storage.
 	PrefixAccessResearch
 

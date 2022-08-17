@@ -348,6 +348,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 		return nil, errors.Wrapf(newStateRootsErr, "cannot get state roots for epoch %d", ei)
 	}
 
+	// TODO: this should move on confirmations only once we have a confirmation gadget.
 	// We advance the LedgerState to the next epoch.
 	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
