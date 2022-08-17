@@ -30,7 +30,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 	startRange := start + 1
 	endRange := end - 1
 	for ei := endRange; ei >= startRange; ei-- {
-		m.requestEpochCommittment(ei)
+		m.requestEpochCommitment(ei)
 	}
 
 	epochToValidate := endRange

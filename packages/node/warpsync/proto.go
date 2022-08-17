@@ -30,20 +30,20 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	}
 }
 
-func (m *Manager) requestEpochCommittment(ei epoch.Index, to ...identity.ID) {
+func (m *Manager) requestEpochCommitment(ei epoch.Index, to ...identity.ID) {
 	committmentReq := &wp.EpochCommittmentRequest{EI: int64(ei)}
 	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
 	m.p2pManager.Send(packet, protocolID, to...)
-	m.log.Debugw("sent epoch committment request", "EI", ei)
+	m.log.Debugw("sent epoch commitment request", "EI", ei)
 }
 
 func (m *Manager) sendEpochCommittmentMessage(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC, to ...identity.ID) {
-	committmentRes := &wp.EpochCommittment{
+	commitmentRes := &wp.EpochCommittment{
 		EI:     int64(ei),
 		ECR:    ecr.Bytes(),
 		PrevEC: prevEC.Bytes(),
 	}
-	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: committmentRes}}
+	packet := &wp.Packet{Body: &wp.Packet_EpochCommitment{EpochCommitment: commitmentRes}}
 
 	m.p2pManager.Send(packet, protocolID, to...)
 }
@@ -116,7 +116,7 @@ func sendNegotiationMessage(ps *p2p.PacketsStream) error {
 
 func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
 	packet := &wp.Packet{}
-	if err := ps.ReadPacket(packet); err != nil {
+	if err = ps.ReadPacket(packet); err != nil {
 		return errors.WithStack(err)
 	}
 	packetBody := packet.GetBody()

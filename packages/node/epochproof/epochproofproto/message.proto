@@ -8,6 +8,7 @@ message Packet {
   oneof body {
     ECSupporters ecSupporters = 1;
     ECSupportersRequest ecSupportersRequest = 2;
+    Negotiation negotiation = 3;
   }
 }
 
@@ -27,3 +28,5 @@ message ECSupporter {
   bytes BlockContentHash = 3;
   bytes Signature = 4;
 }
+
+message Negotiation {}
