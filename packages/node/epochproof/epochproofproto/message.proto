@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "github.com/iotaledger/goshimmer/packages/node/epochproof/epochproofproto";
+
+package epochproofproto;
+
+message Packet {
+  oneof body {
+    ECSupporters ecSupporters = 1;
+    ECSupportersRequest ecSupportersRequest = 2;
+  }
+}
+
+
+message ECSupportersRequest {
+  int64 EI = 1;
+  bytes EC = 2;
+}
+
+message ECSupporters {
+  repeated ECSupporter ecSupporter= 1;
+}
+
+message ECSupporter {
+  bytes NodeID = 1;
+  uint64 timestamp = 2;
+  bytes BlockContentHash = 3;
+  bytes Signature = 4;
+}
