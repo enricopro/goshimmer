@@ -162,22 +162,28 @@ func (m *Manager) LoadEpochDiffs(header *ledger.SnapshotHeader, epochDiffs map[e
 		for _, spentOutputWithMetadata := range epochDiff.Spent() {
 			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
 			m.epochCommitmentFactory.storage.ledgerstateStorage.Delete(spentOutputIDBytes)
-			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
-				panic("epoch diff spends an output not contained in the ledger state")
+			if deleted, _ := m.epochCommitmentFactory.removeStateLeaf(spentOutputWithMetadata.ID()); !deleted {
+				panic("epoch diff spends an output not contained in the ledger state or could not delete it")
 			}
-			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
-			if err != nil {
-				panic("could not delete leaf from state root tree")
+			if err := m.epochCommitmentFactory.updateManaLeaf(spentOutputWithMetadata, false); err != nil {
+				panic("could not update mana leaf with spent output")
 			}
 		}
 		for _, createdOutputWithMetadata := range epochDiff.Created() {
-			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
 			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
-			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
-			if err != nil {
+			if err := m.epochCommitmentFactory.insertStateLeaf(createdOutputWithMetadata.ID()); err != nil {
 				panic("could not update leaf of state root tree")
 			}
+			if err := m.epochCommitmentFactory.updateManaLeaf(createdOutputWithMetadata, true); err != nil {
+				panic("could not update mana leaf with created output")
+			}
 		}
+
+		// We have to store the epochdiffs in order to update the mana vector, as it has some delay from DiffEpochIndex.
+		if ei >= header.DiffEpochIndex-epoch.Index(m.options.ManaEpochDelay) {
+			m.epochCommitmentFactory.storeDiffUTXOs(ei, epochDiff.Spent(), epochDiff.Created())
+		}
+
 	}
 	return
 }

@@ -102,15 +102,14 @@ func (f *EpochCommitmentFactory) insertStateLeaf(outputID utxo.OutputID) error {
 }
 
 // RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) error {
-	exists, _ := f.stateRootTree.Has(outputID.Bytes())
-	if exists {
-		_, err := f.stateRootTree.Delete(outputID.Bytes())
-		if err != nil {
-			return errors.Wrap(err, "could not delete leaf from the state tree")
-		}
+func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) (bool, error) {
+	if exists, _ := f.stateRootTree.Has(outputID.Bytes()); !exists {
+		return false, nil
 	}
-	return nil
+	if _, err := f.stateRootTree.Delete(outputID.Bytes()); err != nil {
+		return false, errors.Wrap(err, "could not delete leaf from the state tree")
+	}
+	return true, nil
 }
 
 // UpdateManaLeaf updates the mana balance in the mana sparse merkle tree.
@@ -415,7 +414,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 
 	// Remove spent UTXOs from the state tree.
 	for _, spent := range spentOutputs {
-		err = f.removeStateLeaf(spent.ID())
+		_, err = f.removeStateLeaf(spent.ID())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not remove state leaf")
 		}
