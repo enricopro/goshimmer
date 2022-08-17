@@ -12,14 +12,13 @@ message Packet {
   }
 }
 
-
 message ECSupportersRequest {
   int64 EI = 1;
   bytes EC = 2;
 }
 
 message ECSupporters {
-  repeated ECSupporter ecSupporter= 1;
+  repeated ECSupporter ecSupporter = 1;
 }
 
 message ECSupporter {
