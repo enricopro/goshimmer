@@ -58,8 +58,8 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	}
 
 	// lock the entire ledger in notarization manager until the snapshot is created.
-	deps.NotarizationMgr.WriteLockLedger()
-	defer deps.NotarizationMgr.WriteUnlockLedger()
+	deps.NotarizationMgr.Lock()
+	defer deps.NotarizationMgr.Unlock()
 
 	headerPord := headerProducer(ecRecord, lastConfirmedEpoch)
 	outputWithMetadataProd := snapshot.NewLedgerUTXOStatesProducer(lastConfirmedEpoch, deps.NotarizationMgr)
