@@ -17,12 +17,14 @@ type BaseManaVector interface {
 	Size() int
 	// Has tells if a certain node is present in the base mana vector.
 	Has(identity.ID) bool
+	// Clone clones the mana vector by initializing a new vector with the same mana map.
+	Clone() BaseManaVector
 	// InitializeWithData loads the initial mana state into the base mana vector.
 	InitializeWithData(map[identity.ID]float64)
 	// Book books mana into the base mana vector.
-	Book(*TxInfo)
+	Book(txInfo *TxInfo, triggerEvents ...bool)
 	// BookEpoch books all outputs created and spent in an epoch.
-	BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata)
+	BookEpoch(created, spent []*ledger.OutputWithMetadata, triggerEvents ...bool)
 	// GetMana returns the mana value of a node with default weights.
 	GetMana(identity.ID) (float64, time.Time, error)
 	// GetManaMap returns the map derived from the vector.

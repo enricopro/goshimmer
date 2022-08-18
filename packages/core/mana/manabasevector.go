@@ -61,7 +61,7 @@ func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) 
 }
 
 // Clone clones the mana vector by initializing a new vector with the same mana map.
-func (m *ManaBaseVector) Clone() *ManaBaseVector {
+func (m *ManaBaseVector) Clone() BaseManaVector {
 	new := new(ManaBaseVector)
 	manaMap, _, _ := m.GetManaMap()
 	new.InitializeWithData(manaMap)
@@ -70,7 +70,7 @@ func (m *ManaBaseVector) Clone() *ManaBaseVector {
 }
 
 // Book books mana for a transaction.
-func (m *ManaBaseVector) Book(txInfo *TxInfo) {
+func (m *ManaBaseVector) Book(txInfo *TxInfo, triggerEvents ...bool) {
 	// gather events to be triggered once the lock is lifted
 	var revokeEvents []*RevokedEvent
 	var pledgeEvents []*PledgedEvent
@@ -119,24 +119,13 @@ func (m *ManaBaseVector) Book(txInfo *TxInfo) {
 		})
 	}()
 
-	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
-}
-
-func (m *ManaBaseVector) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
-	// trigger the events once we released the lock on the mana vector
-	for _, ev := range revokeEvents {
-		Events.Revoked.Trigger(ev)
-	}
-	for _, ev := range pledgeEvents {
-		Events.Pledged.Trigger(ev)
-	}
-	for _, ev := range updateEvents {
-		Events.Updated.Trigger(ev)
+	if len(triggerEvents) == 0 || triggerEvents[0] {
+		m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
 	}
 }
 
 // BookEpoch takes care of the booking of consensus mana for the given committed epoch.
-func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata) {
+func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent []*ledger.OutputWithMetadata, triggerEvents ...bool) {
 	var revokeEvents []*RevokedEvent
 	var pledgeEvents []*PledgedEvent
 	var updateEvents []*UpdatedEvent
@@ -195,7 +184,23 @@ func (m *ManaBaseVector) BookEpoch(created []*ledger.OutputWithMetadata, spent [
 			})
 		}
 	}()
-	m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+
+	if len(triggerEvents) == 0 || triggerEvents[0] {
+		m.triggerManaEvents(revokeEvents, pledgeEvents, updateEvents)
+	}
+}
+
+func (m *ManaBaseVector) triggerManaEvents(revokeEvents []*RevokedEvent, pledgeEvents []*PledgedEvent, updateEvents []*UpdatedEvent) {
+	// trigger the events once we released the lock on the mana vector
+	for _, ev := range revokeEvents {
+		Events.Revoked.Trigger(ev)
+	}
+	for _, ev := range pledgeEvents {
+		Events.Pledged.Trigger(ev)
+	}
+	for _, ev := range updateEvents {
+		Events.Updated.Trigger(ev)
+	}
 }
 
 func (m *ManaBaseVector) getIDBasedOnManaType(output *ledger.OutputWithMetadata) (pledgeID identity.ID) {
