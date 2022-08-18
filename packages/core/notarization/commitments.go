@@ -50,6 +50,9 @@ type EpochCommitmentFactory struct {
 
 	// snapshotDepth defines how far back the ledgerstate is kept with respect to the latest committed epoch.
 	snapshotDepth int
+
+	// TODO: remove this once the confirmation gadget actually exists
+	confirmationDelay int
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -67,8 +70,10 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangleold.Tangle, 
 		storage:         epochCommitmentStorage,
 		tangle:          tangle,
 		snapshotDepth:   snapshotDepth,
-		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
-		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		// TODO: remove this once the confirmation gadget actually exists
+		confirmationDelay: 10,
+		stateRootTree:     smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
+		manaRootTree:      smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
 }
 
@@ -82,7 +87,7 @@ func (f *EpochCommitmentFactory) ManaRoot() []byte {
 	return f.manaRootTree.Root()
 }
 
-// ECRandRoots retrieves the epoch commitment root.
+// ECRandRoots computer a new epoch committment, returning ECR and corresponding Roots.
 func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr epoch.ECR, roots *epoch.CommitmentRoots, err error) {
 	roots, err = f.newEpochRoots(ei)
 	if err != nil {
@@ -216,6 +221,7 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 	if ecRecord != nil {
 		return ecRecord, nil
 	}
+
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, roots, ecrErr := f.ECRandRoots(ei)
 	if ecrErr != nil {
@@ -348,8 +354,8 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	}
 
 	// TODO: this should move on confirmations only once we have a confirmation gadget.
-	// We advance the LedgerState to the next epoch.
-	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
+	// The ledgerstate should always sit at confirmedEpochIndex - snapshotDepth.
+	f.commitLedgerState(ei - epoch.Index(f.confirmationDelay) - epoch.Index(f.snapshotDepth))
 
 	commitmentRoots = &epoch.CommitmentRoots{
 		StateRoot:         epoch.NewMerkleRoot(stateRoot),
