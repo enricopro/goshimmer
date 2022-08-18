@@ -51,40 +51,6 @@ func (m *ManaBaseVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-// // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
-// // `eventLogs` is expected to be sorted chronologically.
-// func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
-//	if m.vector == nil {
-//		m.vector = make(map[identity.ID]*ConsensusBaseMana)
-//	}
-//	for _, _ev := range eventsLog {
-//		switch _ev.Type() {
-//		case EventTypePledge:
-//			ev := _ev.(*PledgedEvent)
-//			if ev.Time.After(t) {
-//				return nil
-//			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
-//			}
-//			m.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
-//		case EventTypeRevoke:
-//			ev := _ev.(*RevokedEvent)
-//			if ev.Time.After(t) {
-//				return nil
-//			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
-//			}
-//			err := m.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
-//			if err != nil {
-//				return err
-//			}
-//		}
-//	}
-//	return nil
-// }
-
 // InitializeWithData initializes the mana vector data.
 func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) {
 	m.Lock()
@@ -92,6 +58,15 @@ func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) 
 	for nodeID, value := range dataByNode {
 		m.M.Vector[nodeID] = NewManaBase(value)
 	}
+}
+
+// Clone clones the mana vector by initializing a new vector with the same mana map.
+func (m *ManaBaseVector) Clone() *ManaBaseVector {
+	new := new(ManaBaseVector)
+	manaMap, _, _ := m.GetManaMap()
+	new.InitializeWithData(manaMap)
+
+	return new
 }
 
 // Book books mana for a transaction.
