@@ -2,7 +2,9 @@ package epochproof
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/goshimmer/packages/node/warpsync"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/logger"
@@ -14,17 +16,22 @@ const (
 )
 
 type Manager struct {
-	p2pManager *p2p.Manager
+	p2pManager          *p2p.Manager
+	warpSyncManager     *warpsync.Manager
+	notarizationManager *notarization.Manager
 
 	log *logger.Logger
 
 	stopped typeutils.AtomicBool
 }
 
-func NewManager(p2pManager *p2p.Manager, log *logger.Logger, opts ...options.Option[Manager]) *Manager {
+func NewManager(p2pManager *p2p.Manager, warpSyncManager *warpsync.Manager, notarizationManager *notarization.Manager,
+	log *logger.Logger, opts ...options.Option[Manager]) *Manager {
 	m := &Manager{
-		p2pManager: p2pManager,
-		log:        log,
+		p2pManager:          p2pManager,
+		warpSyncManager:     warpSyncManager,
+		notarizationManager: notarizationManager,
+		log:                 log,
 	}
 
 	m.p2pManager.RegisterProtocol(protocolID, &p2p.ProtocolHandler{

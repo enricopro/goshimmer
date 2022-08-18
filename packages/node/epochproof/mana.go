@@ -1,0 +1,35 @@
+package epochproof
+
+import (
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/mana"
+	"github.com/iotaledger/goshimmer/plugins/blocklayer"
+)
+
+// manaVectorForEpoch returns the mana vector at the specified epoch forking point.
+func (m *Manager) manaVectorForEpoch(forkingPoint epoch.Index) (manaVector mana.BaseManaVector, err error) {
+	cei, err := m.notarizationManager.LatestConfirmedEpochIndex()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get latest confirmed epoch index")
+	}
+	if cei > forkingPoint {
+		return nil, errors.Errorf("requested epoch %d is below confirmed epoch %d", forkingPoint, cei)
+
+	}
+
+	manaVector = blocklayer.ConfirmedCManaVector.Clone()
+
+	m.notarizationManager.RLock()
+	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei, forkingPoint)
+	m.notarizationManager.RUnlock()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get epoch diffs")
+	}
+
+	for ei := cei; ei <= forkingPoint; ei++ {
+		manaVector.BookEpoch(epochDiffs[ei].Created(), epochDiffs[ei].Spent(), false)
+	}
+
+	return
+}
