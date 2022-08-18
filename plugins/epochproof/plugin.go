@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
-	"time"
 )
 
 // PluginName is the name of the epochproof plugin.
@@ -65,8 +64,7 @@ func configure(_ *node.Plugin) {
 		if ourEC.ComputeEC() == otherEC.ComputeEC() {
 			return
 		}
-		// todo params Parameters.SyncRangeTimeOut
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
 		defer cancel()
 		deps.EpochproofMgr.RequestECChain(ctx, ei, otherNodeID, otherEC)
 
