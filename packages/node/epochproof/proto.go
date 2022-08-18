@@ -10,12 +10,12 @@ import (
 func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	epPacket := packet.(*epp.Packet)
 	switch packetBody := epPacket.GetBody().(type) {
-	case *epp.Packet_EcSupportersRequest:
+	case *epp.Packet_ECSupportersRequest:
 		return submitTask(m.processECSupportersRequest, packetBody, nbr)
-	case *epp.Packet_EcSupporters:
+	case *epp.Packet_ECSupporters:
 		return submitTask(m.processECSupporters, packetBody, nbr)
 	default:
-		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", epPacket, epPacketBody, epPacketBody)
+		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", epPacket, packetBody, packetBody)
 	}
 
 }

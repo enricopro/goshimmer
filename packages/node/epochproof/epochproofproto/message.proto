@@ -6,8 +6,8 @@ package epochproofproto;
 
 message Packet {
   oneof body {
-    ECSupporters ecSupporters = 1;
-    ECSupportersRequest ecSupportersRequest = 2;
+    ECSupporters ECSupporters = 1;
+    ECSupportersRequest ECSupportersRequest = 2;
     Negotiation negotiation = 3;
   }
 }
@@ -18,14 +18,14 @@ message ECSupportersRequest {
 }
 
 message ECSupporters {
-  repeated ECSupporter ecSupporter = 1;
+  repeated ECSupporter ECSupporter = 1;
 }
 
 message ECSupporter {
-  bytes NodeID = 1;
+  bytes nodeID = 1;
   uint64 timestamp = 2;
-  bytes BlockContentHash = 3;
-  bytes Signature = 4;
+  bytes blockContentHash = 3;
+  bytes signature = 4;
 }
 
 message Negotiation {}

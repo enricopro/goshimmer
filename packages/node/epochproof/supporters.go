@@ -7,14 +7,14 @@ import (
 )
 
 // todo finish
-func (m *Manager) processECSupportersRequest(packetECSupportersRequest *epp.Packet_EcSupportersRequest, nbr *p2p.Neighbor) {
+func (m *Manager) processECSupportersRequest(packetECSupportersRequest *epp.Packet_ECSupporters, nbr *p2p.Neighbor) {
 	//ei := epoch.Index(packetECSupportersRequest.EcSupportersRequest.GetEI())
 	//ec := packetECSupportersRequest.EcSupportersRequest.GetEC()
 }
 
 // todo finish
-func (m *Manager) processECSupporters(packetECSupporters *epp.Packet_EcSupporters, nbr *p2p.Neighbor) {
-	for _, supporter := range packetECSupporters.EcSupporters.GetEcSupporter() {
+func (m *Manager) processECSupporters(packetECSupporters *epp.Packet_ECSupporters, nbr *p2p.Neighbor) {
+	for _, supporter := range packetECSupporters.ECSupporters.GetECSupporter() {
 		var nodeID identity.ID
 		if err := nodeID.FromBytes(supporter.NodeID); err != nil {
 			m.log.Errorf("failed to parse node ID: %v", err)
