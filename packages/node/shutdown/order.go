@@ -23,6 +23,8 @@ const (
 	PriorityMetrics
 	// PriorityWarpsync defines the shutdown priority for warpsync.
 	PriorityWarpsync
+	// PriorityEpochproof defines the shutdown priority for epochproof.
+	PriorityEpochproof
 	// PriorityGossip defines the shutdown priority for gossip.
 	PriorityGossip
 	// PriorityP2P defines the shutdown priority for p2p.

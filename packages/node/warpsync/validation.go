@@ -17,11 +17,11 @@ type neighborCommitment struct {
 	ecRecord *epoch.ECRecord
 }
 
-func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID], err error) {
+func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain epoch.ECChain, validPeers *set.AdvancedSet[identity.ID], err error) {
 	m.startValidation()
-	defer m.endValidation()
+	defer m.stopValidation()
 
-	ecChain = make(map[epoch.Index]epoch.EC)
+	ecChain = make(epoch.ECChain)
 	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
 	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsIDs()...)
 	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
@@ -47,24 +47,14 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			ecRecord := commitment.ecRecord
 			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.EI()
-			m.log.Debugw("read committment", "EI", commitmentEI, "EC", ecRecord.ComputeEC().Base58())
-			// Ignore invalid neighbor.
-			if !validPeers.Has(peerID) {
-				m.log.Debugw("ignoring invalid neighbor", "ID", peerID, "validPeers", validPeers)
+			if m.isCommitmentInvalid(peerID, commitmentEI, start, end, validPeers, ecRecord) {
 				continue
-			}
-
-			// Ignore committments outside of the range.
-			if commitmentEI < startRange || commitmentEI > endRange {
-				m.log.Debugw("ignoring committment outside of requested range", "EI", commitmentEI, "peer", peerID)
-				continue
-
 			}
 
 			// If we already validated this epoch, we check if the neighbor is on the target chain.
 			if commitmentEI > epochToValidate {
 				if ecRecordChain[commitmentEI].ComputeEC() != ecRecord.ComputeEC() {
-					m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
+					m.log.Infof("ignoring commitment and peer that doesn't match already validated chain , peer: %s", peerID.String())
 					validPeers.Delete(peerID)
 				}
 				continue
@@ -76,7 +66,7 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 			}
 			neighborCommitments[commitmentEI][peerID] = commitment
 
-			// We received a committment out of order, we can evaluate it only later.
+			// We received a commitment out of order, we can evaluate it only later.
 			if commitmentEI < epochToValidate {
 				continue
 			}
@@ -96,12 +86,12 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 					}
 					proposedECRecord := epochCommitment.ecRecord
 					if ecRecordChain[epochToValidate+1].PrevEC() != proposedECRecord.ComputeEC() {
-						m.log.Infof("ignoring commitment outside of the target chain", "peer", peerID)
+						m.log.Infof("ignoring commitments, as it doesn't match the previous commitment for the next epoch, peer: %s", peerID.String())
 						validPeers.Delete(peerID)
 						continue
 					}
 
-					// We store the valid committment for this chain.
+					// We store the valid commitment for this chain.
 					ecRecordChain[epochToValidate] = proposedECRecord
 					ecChain[epochToValidate] = proposedECRecord.ComputeEC()
 				}
@@ -131,6 +121,24 @@ func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index,
 	}
 }
 
+func (m *Manager) isCommitmentInvalid(peerID identity.ID, commitmentEI epoch.Index, startRange epoch.Index, endRange epoch.Index,
+	validPeers *set.AdvancedSet[identity.ID], ecRecord *epoch.ECRecord) (invalid bool) {
+	m.log.Debugw("read commitment", "EI", commitmentEI, "EC", ecRecord.ComputeEC().Base58())
+	// Ignore invalid neighbor.
+	if !validPeers.Has(peerID) {
+		m.log.Debugw("ignoring invalid neighbor", "ID", peerID, "validPeers", validPeers)
+		return true
+	}
+
+	// Ignore commitments outside the range.
+	if commitmentEI < startRange || commitmentEI > endRange {
+		m.log.Debugw("ignoring commitment outside of requested range", "EI", commitmentEI, "peer", peerID)
+		return true
+
+	}
+	return false
+}
+
 func (m *Manager) startValidation() {
 	m.validationLock.Lock()
 	defer m.validationLock.Unlock()
@@ -139,7 +147,7 @@ func (m *Manager) startValidation() {
 	m.commitmentsStopChan = make(chan struct{})
 }
 
-func (m *Manager) endValidation() {
+func (m *Manager) stopValidation() {
 	close(m.commitmentsStopChan)
 	m.validationLock.Lock()
 	defer m.validationLock.Unlock()
@@ -147,21 +155,21 @@ func (m *Manager) endValidation() {
 	close(m.commitmentsChan)
 }
 
-func (m *Manager) processEpochCommittmentRequestPacket(packetEpochRequest *wp.Packet_EpochCommitmentRequest, nbr *p2p.Neighbor) {
+func (m *Manager) processEpochCommitmentRequestPacket(packetEpochRequest *wp.Packet_EpochCommitmentRequest, nbr *p2p.Neighbor) {
 	ei := epoch.Index(packetEpochRequest.EpochCommitmentRequest.GetEI())
-	m.log.Debugw("received epoch committment request", "peer", nbr.Peer.ID(), "EI", ei)
+	m.log.Debugw("received epoch commitment request", "peer", nbr.Peer.ID(), "EI", ei)
 
 	ecRecord, exists := epochstorage.GetEpochCommittment(ei)
 	if !exists {
 		return
 	}
 
-	m.sendEpochCommittmentMessage(ei, ecRecord.ECR(), ecRecord.PrevEC(), nbr.ID())
+	m.sendEpochCommitmentMessage(ei, ecRecord.ECR(), ecRecord.PrevEC(), nbr.ID())
 
-	m.log.Debugw("sent epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
+	m.log.Debugw("sent epoch commitment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
 }
 
-func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
+func (m *Manager) processEpochCommitmentPacket(packetEpochCommitment *wp.Packet_EpochCommitment, nbr *p2p.Neighbor) {
 	m.validationLock.RLock()
 	defer m.validationLock.RUnlock()
 
@@ -169,15 +177,15 @@ func (m *Manager) processEpochCommittmentPacket(packetEpochCommittment *wp.Packe
 		return
 	}
 
-	ei := epoch.Index(packetEpochCommittment.EpochCommitment.GetEI())
-	ecr := epoch.NewMerkleRoot(packetEpochCommittment.EpochCommitment.GetECR())
-	prevEC := epoch.NewMerkleRoot(packetEpochCommittment.EpochCommitment.GetPrevEC())
+	ei := epoch.Index(packetEpochCommitment.EpochCommitment.GetEI())
+	ecr := epoch.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetECR())
+	prevEC := epoch.NewMerkleRoot(packetEpochCommitment.EpochCommitment.GetPrevEC())
 
 	ecRecord := epoch.NewECRecord(ei)
 	ecRecord.SetECR(ecr)
 	ecRecord.SetPrevEC(prevEC)
 
-	m.log.Debugw("received epoch committment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
+	m.log.Debugw("received epoch commitment", "peer", nbr.Peer.ID(), "EI", ei, "EC", ecRecord.ComputeEC().Base58())
 
 	select {
 	case <-m.commitmentsStopChan:

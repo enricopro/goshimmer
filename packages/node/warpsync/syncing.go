@@ -46,12 +46,12 @@ type blockReceived struct {
 	peer  *peer.Peer
 }
 
-func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC epoch.EC, ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID]) (err error) {
+func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, ecChain epoch.ECChain, validPeers *set.AdvancedSet[identity.ID]) (err error) {
 	startRange := start + 1
 	endRange := end - 1
 
 	m.startSyncing(startRange, endRange)
-	defer m.endSyncing()
+	defer m.stopSyncing()
 
 	var wg sync.WaitGroup
 	epochProcessingChan := make(chan epoch.Index)
@@ -96,7 +96,7 @@ func (m *Manager) syncRange(ctx context.Context, start, end epoch.Index, startEC
 						m.epochProcessBlocksCommand,
 					).WithTerminationCallback(func(params *syncingFlowParams) {
 						epochChannels.RUnlock()
-						m.endEpochSyncing(targetEpoch)
+						m.stopEpochSyncing(targetEpoch)
 					}).WithSuccessCallback(func(params *syncingFlowParams) {
 						success = true
 						m.log.Infow("synced epoch", "epoch", params.targetEpoch, "peer", params.peerID)
@@ -151,7 +151,7 @@ func (m *Manager) startSyncing(startRange, endRange epoch.Index) {
 	}
 }
 
-func (m *Manager) endSyncing() {
+func (m *Manager) stopSyncing() {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 
@@ -175,7 +175,7 @@ func (m *Manager) startEpochSyncing(ei epoch.Index) (epochChannels *epochChannel
 	return
 }
 
-func (m *Manager) endEpochSyncing(ei epoch.Index) {
+func (m *Manager) stopEpochSyncing(ei epoch.Index) {
 	m.syncingLock.Lock()
 	defer m.syncingLock.Unlock()
 

@@ -22,22 +22,22 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	case *wp.Packet_EpochBlocksEnd:
 		return submitTask(m.processEpochBlocksEndPacket, packetBody, nbr)
 	case *wp.Packet_EpochCommitmentRequest:
-		return submitTask(m.processEpochCommittmentRequestPacket, packetBody, nbr)
+		return submitTask(m.processEpochCommitmentRequestPacket, packetBody, nbr)
 	case *wp.Packet_EpochCommitment:
-		return submitTask(m.processEpochCommittmentPacket, packetBody, nbr)
+		return submitTask(m.processEpochCommitmentPacket, packetBody, nbr)
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", wpPacket, packetBody, packetBody)
 	}
 }
 
 func (m *Manager) requestEpochCommitment(ei epoch.Index, to ...identity.ID) {
-	committmentReq := &wp.EpochCommittmentRequest{EI: int64(ei)}
-	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: committmentReq}}
+	commitmentReq := &wp.EpochCommittmentRequest{EI: int64(ei)}
+	packet := &wp.Packet{Body: &wp.Packet_EpochCommitmentRequest{EpochCommitmentRequest: commitmentReq}}
 	m.p2pManager.Send(packet, protocolID, to...)
 	m.log.Debugw("sent epoch commitment request", "EI", ei)
 }
 
-func (m *Manager) sendEpochCommittmentMessage(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC, to ...identity.ID) {
+func (m *Manager) sendEpochCommitmentMessage(ei epoch.Index, ecr epoch.ECR, prevEC epoch.EC, to ...identity.ID) {
 	commitmentRes := &wp.EpochCommittment{
 		EI:     int64(ei),
 		ECR:    ecr.Bytes(),

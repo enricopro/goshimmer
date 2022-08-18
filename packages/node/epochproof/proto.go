@@ -2,8 +2,10 @@ package epochproof
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	epp "github.com/iotaledger/goshimmer/packages/node/epochproof/epochproofproto"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
+	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,13 +22,20 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 
 }
 
-func epochproofPacketFactory() proto.Message {
+func packetFactory() proto.Message {
 	return &epp.Packet{}
 }
 
 func sendNegotiationMessage(ps *p2p.PacketsStream) error {
 	packet := &epp.Packet{Body: &epp.Packet_Negotiation{Negotiation: &epp.Negotiation{}}}
 	return errors.WithStack(ps.WritePacket(packet))
+}
+
+func (m *Manager) requestECSupporters(ei epoch.Index, ec epoch.EC, to ...identity.ID) {
+	supportersReq := &epp.ECSupportersRequest{EI: int64(ei), EC: ec.Bytes()}
+	packet := &epp.Packet{Body: &epp.Packet_ECSupportersRequest{ECSupportersRequest: supportersReq}}
+	m.p2pManager.Send(packet, protocolID, to...)
+	m.log.Debugw("sent EC supporters request", "EI", ei)
 }
 
 func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {

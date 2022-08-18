@@ -96,6 +96,8 @@ func (m MerkleRoot) Bytes() []byte {
 	return m[:]
 }
 
+type ECChain map[Index]EC
+
 // CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	TangleRoot        MerkleRoot `serix:"0"`

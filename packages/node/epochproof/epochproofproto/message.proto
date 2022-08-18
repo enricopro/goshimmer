@@ -23,7 +23,7 @@ message ECSupporters {
 
 message ECSupporter {
   bytes nodeID = 1;
-  uint64 timestamp = 2;
+  int64 timestamp = 2;
   bytes blockContentHash = 3;
   bytes signature = 4;
 }

@@ -236,6 +236,17 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	return
 }
 
+func (m *Manager) GetECRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	ecRecord = m.epochCommitmentFactory.loadECRecord(ei)
+	if ecRecord == nil {
+		err = errors.Errorf("could not get latest commitment")
+	}
+	return
+}
+
 // LatestConfirmedEpochIndex returns the latest epoch index that has been confirmed.
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.RLock()
@@ -670,6 +681,18 @@ func (m *Manager) updateEpochsBootstrapped(ei epoch.Index) {
 		m.bootstrapMutex.Unlock()
 		m.Events.Bootstrapped.Trigger(&BootstrappedEvent{})
 	}
+}
+
+func (m *Manager) GetECChain(startEI, endEI epoch.Index) (ecChain epoch.ECChain, err error) {
+	ecChain = make(epoch.ECChain)
+	for ei := startEI; ei <= endEI; ei++ {
+		ecRecord, ecRecErr := m.GetECRecord(ei)
+		if ecRecErr != nil {
+			return nil, errors.Wrap(ecRecErr, "could not get EC record")
+		}
+		ecChain[ei] = ecRecord.ComputeEC()
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
