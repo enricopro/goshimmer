@@ -44,10 +44,11 @@ var (
 	allowedPledgeNodes           map[mana.Type]AllowedPledge
 	onTransactionAcceptedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
 	onManaVectorToUpdateClosure  *event.Closure[*notarization.ManaVectorUpdateEvent]
+	onEpochConfirmation          *event.Closure[*notarization.EpochConfirmedEvent]
 
-	// This vector and storage are used to evaluate competing EC chain using a common forking mana vector always
-	// at the latest confirmed epoch.
-	confirmedCManaVector        mana.BaseManaVector
+	// ConfirmedCManaVector is the mana vector at the confirmed epoch.
+	// It used to evaluate competing EC chains using the mana vector at the common forking point.
+	ConfirmedCManaVector        mana.BaseManaVector
 	confirmedCManaVectorStorage *objectstorage.ObjectStorage[*mana.PersistableBaseMana]
 )
 
@@ -68,6 +69,10 @@ func configureManaPlugin(*node.Plugin) {
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
+	// ConfirmedCManaVector is always kept at the confirmed epoch. 
+	onEpochConfirmation = event.NewClosure(func(event *notarization.EpochConfirmedEvent) {
+		ConfirmedCManaVector.BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
+	})
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
@@ -84,7 +89,7 @@ func configureManaPlugin(*node.Plugin) {
 		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 
-	confirmedCManaVector = mana.NewBaseManaVector(mana.ConsensusMana)
+	ConfirmedCManaVector = mana.NewBaseManaVector(mana.ConsensusMana)
 	confirmedCManaVectorStorage = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(deps.Storage, db_pkg.PrefixMana, mana.PrefixConfirmedConsensus))
 
 	err := verifyPledgeNodes()
@@ -212,7 +217,7 @@ func runManaPlugin(_ *node.Plugin) {
 						processOutputs(diff.Spent(), accessManaByNode, false /* areCreated */)
 					}
 
-					// Only the aMana and snapshottable cMana (to the last confirmed epoch) will be loaded until the latest snapshot's epoch
+					// Only the aMana and confirmed cMana (to the last confirmed epoch) will be loaded until the latest snapshot's epoch.
 					for ei := cManaTargetEpoch + 1; ei <= header.DiffEpochIndex; ei++ {
 						diff, exists := epochDiffs[ei]
 						if !exists {
@@ -230,7 +235,6 @@ func runManaPlugin(_ *node.Plugin) {
 					if cManaTargetEpoch < 0 {
 						cManaTargetEpoch = 0
 					}
-
 				}
 
 				if err := snapshot.LoadSnapshot(Parameters.Snapshot.File, headerConsumer, utxoStatesConsumer, epochDiffsConsumer); err != nil {
@@ -239,7 +243,7 @@ func runManaPlugin(_ *node.Plugin) {
 				baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
 				baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
 
-				confirmedCManaVector.InitializeWithData(confirmedConsensusManaByNode)
+				ConfirmedCManaVector.InitializeWithData(confirmedConsensusManaByNode)
 
 				// initialize cMana WeightProvider with snapshot
 				// TODO: consume the activity record from the snapshot to determine which nodes were active at the time of the snapshot
@@ -294,7 +298,7 @@ func readStoredManaVectors() (read bool) {
 
 	confirmedCManaVectorStorage.ForEach(func(_ []byte, cachedObject *objectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
 		cachedObject.Consume(func(p *mana.PersistableBaseMana) {
-			err := confirmedCManaVector.FromPersistable(p)
+			err := ConfirmedCManaVector.FromPersistable(p)
 			if err != nil {
 				manaLogger.Errorf("error while restoring confirmed mana vector: %s", err.Error())
 			}
@@ -314,7 +318,7 @@ func storeManaVectors() {
 		}
 	}
 
-	persistables := confirmedCManaVector.ToPersistables()
+	persistables := ConfirmedCManaVector.ToPersistables()
 	for _, p := range persistables {
 		confirmedCManaVectorStorage.Store(p).Release()
 	}
@@ -332,9 +336,6 @@ func shutdownStorages() {
 		storages[vectorType].Shutdown()
 	}
 	confirmedCManaVectorStorage.Shutdown()
-	// consensusEventsLogStorage.Shutdown()
-	// consensusBaseManaPastVectorStorage.Shutdown()
-	// consensusBaseManaPastVectorMetadataStorage.Shutdown()
 }
 
 // GetHighestManaNodes returns the n highest type mana nodes in descending order.
