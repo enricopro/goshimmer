@@ -21,13 +21,13 @@ func (m *Manager) manaVectorForEpoch(forkingPoint epoch.Index) (manaVector mana.
 	manaVector = blocklayer.ConfirmedCManaVector.Clone()
 
 	m.notarizationManager.RLock()
-	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei, forkingPoint)
+	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei + 1, forkingPoint)
 	m.notarizationManager.RUnlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get epoch diffs")
 	}
 
-	for ei := cei; ei <= forkingPoint; ei++ {
+	for ei := cei + 1; ei <= forkingPoint; ei++ {
 		manaVector.BookEpoch(epochDiffs[ei].Created(), epochDiffs[ei].Spent(), false)
 	}
 
