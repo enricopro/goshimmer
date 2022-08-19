@@ -30,7 +30,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle          *tangleold.Tangle
-	EpochproofMgr   *epochproof.Manager
+	EpochProofMgr   *epochproof.Manager
 	WarpsyncMgr     *warpsync.Manager
 	NotarizationMgr *notarization.Manager
 	P2PMgr          *p2p.Manager
@@ -66,7 +66,7 @@ func configure(_ *node.Plugin) {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
 		defer cancel()
-		deps.EpochproofMgr.RequestECChain(ctx, ei, otherNodeID, otherEC)
+		deps.EpochProofMgr.RequestECChain(ctx, ei, otherNodeID, otherEC)
 
 	}))
 }

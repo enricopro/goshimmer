@@ -18,7 +18,7 @@ message ECSupportersRequest {
 }
 
 message ECSupporters {
-  repeated ECSupporter ECSupporter = 1;
+  repeated ECSupporter ECSupporters = 1;
 }
 
 message ECSupporter {

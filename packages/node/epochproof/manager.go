@@ -2,6 +2,8 @@ package epochproof
 
 import (
 	"context"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/mana"
@@ -13,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
-	"sync"
 )
 
 const (
@@ -25,10 +26,10 @@ type Manager struct {
 	warpSyncManager     *warpsync.Manager
 	notarizationManager *notarization.Manager
 
-	supportersLock       sync.RWMutex
-	supportersChan       chan *supportersProof
-	supporterStopChan    chan struct{}
 	supportersInProgress bool
+	supportersLock       sync.RWMutex
+	supportersChan       chan supportersProof
+	supporterStopChan    chan struct{}
 
 	log *logger.Logger
 
@@ -64,42 +65,45 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *id
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest confirmed epoch index")
 	}
+
 	confirmedEC, err := m.notarizationManager.GetECRecord(latestConfirmedEI)
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest confirmed EC")
 	}
+
 	competingECChain, _, err := m.warpSyncManager.ValidateBackwards(ctx, latestConfirmedEI, ei, confirmedEC.ComputeEC(), competingECRecord.PrevEC())
+	if err != nil {
+		return errors.Wrap(err, "failed to validate competing ECChain")
+	}
+
 	forkingPoint, err := m.determineForkingPoint(competingECChain, latestConfirmedEI)
 	if err != nil {
 		return errors.Wrap(err, "failed to determine forking point")
 	}
+
 	forkingManaVector, err := m.manaVectorForEpoch(forkingPoint)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get mana vector for forking point %d", forkingPoint)
 	}
+
 	m.requestECSupporters(ei, confirmedEC.ComputeEC())
 
-	m.supportersChan = make(chan *supportersProof)
-	defer close(m.supportersChan)
+	select {
+	case supportersOfCompetingChain := <-m.supportersChan:
 
-	var supporters supportersProof
-	for {
-		select {
-		case supporters = <-m.supportersChan:
-			m.selectHeaviestChain(forkingManaVector, supporters)
-			break
-		case <-ctx.Done():
-			return errors.Errorf("failed to get supporters proof for epoch %d: %v", ei, ctx.Err())
-		}
+		voteManager.AddSupporters(competingECRecord.ComputeEC(), supportersOfCompetingChain.supporters)
+
+		m.selectHeaviestChain(forkingManaVector)
+	case <-ctx.Done():
+		return errors.Errorf("failed to get supporters proof for epoch %d: %v", ei, ctx.Err())
 	}
-
 }
 
 func (m *Manager) startRetrievingSupporters() {
 	m.supportersLock.Lock()
 	defer m.supportersLock.Unlock()
 	m.supportersInProgress = true
-	m.supportersChan = make(chan *supportersProof)
+	m.supportersChan = make(chan supportersProof)
 	m.supporterStopChan = make(chan struct{})
 }
 
@@ -140,7 +144,20 @@ func (m *Manager) Stop() {
 	m.p2pManager.UnregisterProtocol(protocolID)
 }
 
-func (m *Manager) selectHeaviestChain(mv mana.BaseManaVector, supporters supportersProof) {
+func (m *Manager) isCompetingChainHeavier(manaVectorAtForkingPoint mana.BaseManaVector) (isHeavier bool, err error) {
+	// TODO: use votesmanager to get supporters on each side of the chain
+	var competingChainWeight, ourChainWeight float64
+	for _, supporter := range supportersOfCompetingChain {
+		supporterMana, _, err := manaVectorAtForkingPoint.GetMana(supporter.nodeID)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to get mana for supporter")
+		}
+		competingChainWeight += supporterMana
+	}
+
+	vm.AddVote(conflictID, supporter, timestamp)
+
+	return false, nil
 
 }
 

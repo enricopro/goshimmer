@@ -19,16 +19,6 @@ func (m *Manager) handlePacket(nbr *p2p.Neighbor, packet proto.Message) error {
 	default:
 		return errors.Errorf("unsupported packet; packet=%+v, packetBody=%T-%+v", epPacket, packetBody, packetBody)
 	}
-
-}
-
-func packetFactory() proto.Message {
-	return &epp.Packet{}
-}
-
-func sendNegotiationMessage(ps *p2p.PacketsStream) error {
-	packet := &epp.Packet{Body: &epp.Packet_Negotiation{Negotiation: &epp.Negotiation{}}}
-	return errors.WithStack(ps.WritePacket(packet))
 }
 
 func (m *Manager) requestECSupporters(ei epoch.Index, ec epoch.EC, to ...identity.ID) {
@@ -36,6 +26,11 @@ func (m *Manager) requestECSupporters(ei epoch.Index, ec epoch.EC, to ...identit
 	packet := &epp.Packet{Body: &epp.Packet_ECSupportersRequest{ECSupportersRequest: supportersReq}}
 	m.p2pManager.Send(packet, protocolID, to...)
 	m.log.Debugw("sent EC supporters request", "EI", ei)
+}
+
+func sendNegotiationMessage(ps *p2p.PacketsStream) error {
+	packet := &epp.Packet{Body: &epp.Packet_Negotiation{Negotiation: &epp.Negotiation{}}}
+	return errors.WithStack(ps.WritePacket(packet))
 }
 
 func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
@@ -51,4 +46,8 @@ func receiveNegotiationMessage(ps *p2p.PacketsStream) (err error) {
 		)
 	}
 	return nil
+}
+
+func packetFactory() proto.Message {
+	return &epp.Packet{}
 }

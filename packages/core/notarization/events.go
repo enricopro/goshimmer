@@ -16,6 +16,8 @@ type Events struct {
 	EpochCommittable *event.Event[*EpochCommittableEvent]
 	// EpochConfirmed is an event that gets triggered whenever an epoch is confirmed.
 	EpochConfirmed *event.Event[*EpochConfirmedEvent]
+	// CompetingCommitmentDetected is an event that gets triggered whenever a competing epoch commitment is detected.
+	CompetingCommitmentDetected *event.Event[*CompetingCommitmentDetectedEvent]
 	// ManaVectorUpdate is an event that gets triggered whenever the consensus mana vector needs to be updated.
 	ManaVectorUpdate *event.Event[*ManaVectorUpdateEvent]
 	// TangleTreeInserted is an event that gets triggered when a Block is inserted into the Tangle smt.
@@ -86,6 +88,12 @@ type EpochConfirmedEvent struct {
 	EpochDiffCreated []*ledger.OutputWithMetadata
 	// EpochDiffSpent is the list of outputs spent in the epoch.
 	EpochDiffSpent []*ledger.OutputWithMetadata
+}
+
+// CompetingCommitmentDetectedEvent is a container that acts as a dictionary for the CompetingCommitmentDetectedEvent event related parameters.
+type CompetingCommitmentDetectedEvent struct {
+	// Block is the block that contains the competing commitment.
+	Block *tangleold.Block
 }
 
 // ManaVectorUpdateEvent is a container that acts as a dictionary for the EpochCommittable event related parameters.

@@ -1,17 +1,18 @@
 package epochproof
 
 import (
+	"time"
+
 	epp "github.com/iotaledger/goshimmer/packages/node/epochproof/epochproofproto"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/iotaledger/hive.go/core/identity"
-	"time"
 )
 
 type supporterProof struct {
-	nodeID           *identity.ID
-	blockContentHash []byte
+	nodeID           identity.ID
 	timestamp        time.Time
+	blockContentHash []byte
 	signature        ed25519.Signature
 }
 
@@ -31,30 +32,30 @@ func (m *Manager) processECSupporters(packetECSupporters *epp.Packet_ECSupporter
 		return
 	}
 
-	supportersResp := packetECSupporters.ECSupporters.GetECSupporter()
+	supportersResp := packetECSupporters.ECSupporters.GetECSupporters()
 	supporters := make(supportersProof, len(supportersResp))
 	for i, supporter := range supportersResp {
-		nodeID := new(identity.ID)
-		if err := nodeID.FromBytes(supporter.NodeID); err != nil {
+		nodeID, err := identity.IDFromBytes(supporter.NodeID)
+		if err != nil {
 			m.log.Errorf("failed to parse node ID: %v", err)
 			return
 		}
-		sig, _, err := ed25519.SignatureFromBytes(supporter.Signature)
+		signature, _, err := ed25519.SignatureFromBytes(supporter.Signature)
 		if err != nil {
 			m.log.Errorf("failed to parse signature: %v", err)
+			return
 		}
 		supporters[i] = &supporterProof{
 			nodeID:           nodeID,
-			blockContentHash: supporter.BlockContentHash,
 			timestamp:        time.Unix(supporter.Timestamp, 0),
-			signature:        sig,
+			blockContentHash: supporter.BlockContentHash,
+			signature:        signature,
 		}
 	}
 
 	select {
 	case <-m.supporterStopChan:
 		return
-	case m.supportersChan <- &supporters:
+	case m.supportersChan <- supporters:
 	}
-
 }

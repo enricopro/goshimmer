@@ -9,6 +9,7 @@ import (
 
 // manaVectorForEpoch returns the mana vector at the specified epoch forking point.
 func (m *Manager) manaVectorForEpoch(forkingPoint epoch.Index) (manaVector mana.BaseManaVector, err error) {
+	m.notarizationManager.RLock()
 	cei, err := m.notarizationManager.LatestConfirmedEpochIndex()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get latest confirmed epoch index")
@@ -19,9 +20,7 @@ func (m *Manager) manaVectorForEpoch(forkingPoint epoch.Index) (manaVector mana.
 	}
 
 	manaVector = blocklayer.ConfirmedCManaVector.Clone()
-
-	m.notarizationManager.RLock()
-	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei + 1, forkingPoint)
+	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei+1, forkingPoint)
 	m.notarizationManager.RUnlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get epoch diffs")
