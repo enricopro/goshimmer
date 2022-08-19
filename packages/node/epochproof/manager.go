@@ -10,11 +10,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/iotaledger/hive.go/core/typeutils"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 const (
@@ -66,7 +68,6 @@ func WithSupportersInProof(supportersInProof uint) options.Option[Manager] {
 	}
 }
 
-
 func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *identity.Identity, competingECRecord *epoch.ECRecord) error {
 	m.startRetrievingSupporters()
 	defer m.stopRetrievingSupporters()
@@ -76,12 +77,12 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *id
 		return errors.Wrap(err, "failed to get latest confirmed epoch index")
 	}
 
-	confirmedEC, err := m.notarizationManager.GetECRecord(latestConfirmedEI)
+	confirmedECRecord, err := m.notarizationManager.GetECRecord(latestConfirmedEI)
 	if err != nil {
 		return errors.Wrap(err, "failed to get latest confirmed EC")
 	}
 
-	competingECChain, _, err := m.warpSyncManager.ValidateBackwards(ctx, latestConfirmedEI, ei, confirmedEC.ComputeEC(), competingECRecord.PrevEC())
+	competingECChain, _, err := m.warpSyncManager.ValidateBackwards(ctx, latestConfirmedEI, ei, confirmedECRecord.ComputeEC(), competingECRecord.PrevEC())
 	if err != nil {
 		return errors.Wrap(err, "failed to validate competing ECChain")
 	}
@@ -96,10 +97,12 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *id
 		return errors.Wrapf(err, "failed to get mana vector for forking point %d", forkingPoint)
 	}
 
-	m.requestECSupporters(ei, confirmedEC.ComputeEC())
+	confirmedEC := confirmedECRecord.ComputeEC()
+	m.requestECSupporters(ei, confirmedEC)
 
 	select {
 	case supportersOfCompetingChain := <-m.supportersChan:
+		filteredSupporters := filterValidSupporters(supportersOfCompetingChain, confirmedEC)
 		voteManager.AddSupporters(competingECRecord.ComputeEC(), supportersOfCompetingChain.supporters)
 
 		m.selectHeaviestChain(forkingManaVector)
@@ -175,4 +178,20 @@ func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet
 		return errors.Errorf("WorkerPool full: packet block discarded")
 	}
 	return nil
+}
+
+func filterValidSupporters(supporters supportersProof, confirmedEC epoch.EC) (filteredSupporters supportersProof) {
+	filteredSupporters = make(supportersProof, 0)
+	for _, supporter := range supporters {
+		issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), supporter.issuingTime, serix.WithValidation())
+		if err != nil {
+			return nil
+		}
+
+		if supporter.issuerPublicKey.VerifySignature(byteutils.ConcatBytes(confirmedEC.Bytes(), issuingTimeBytes, supporter.blockContentHash), supporter.signature) {
+			filteredSupporters = append(filteredSupporters, supporter)
+		}
+	}
+
+	return
 }

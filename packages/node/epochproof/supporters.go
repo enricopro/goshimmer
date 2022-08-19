@@ -8,12 +8,11 @@ import (
 	epp "github.com/iotaledger/goshimmer/packages/node/epochproof/epochproofproto"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/identity"
 )
 
 type supporterProof struct {
-	nodeID           identity.ID
-	timestamp        time.Time
+	issuerPublicKey  ed25519.PublicKey
+	issuingTime      time.Time
 	blockContentHash []byte
 	signature        ed25519.Signature
 }
@@ -72,19 +71,19 @@ func (m *Manager) processECSupporters(packetECSupporters *epp.Packet_ECSupporter
 	supportersResp := packetECSupporters.ECSupporters.GetECSupporters()
 	supporters := make(supportersProof, len(supportersResp))
 	for i, supporter := range supportersResp {
-		nodeID, err := identity.IDFromBytes(supporter.NodeID)
+		issuerPublicKey, _, err := ed25519.PublicKeyFromBytes(supporter.GetIssuerPublicKey())
 		if err != nil {
 			m.log.Errorf("failed to parse node ID: %v", err)
 			return
 		}
-		signature, _, err := ed25519.SignatureFromBytes(supporter.Signature)
+		signature, _, err := ed25519.SignatureFromBytes(supporter.GetSignature())
 		if err != nil {
 			m.log.Errorf("failed to parse signature: %v", err)
 			return
 		}
 		supporters[i] = &supporterProof{
-			nodeID:           nodeID,
-			timestamp:        time.Unix(supporter.Timestamp, 0),
+			issuerPublicKey:  issuerPublicKey,
+			issuingTime:      time.Unix(supporter.GetIssuingTime(), 0),
 			blockContentHash: supporter.BlockContentHash,
 			signature:        signature,
 		}

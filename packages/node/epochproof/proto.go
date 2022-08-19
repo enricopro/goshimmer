@@ -38,8 +38,8 @@ func (m *Manager) sendECSupporters(supporterBlocks []*tangleold.Block, to ...ide
 			return errors.Wrap(err, "failed to get block content hash")
 		}
 		epochSupportersElements[i] = &epp.ECSupporter{
-			NodeID:           identity.NewID(block.IssuerPublicKey()).Bytes(),
-			Timestamp:        block.IssuingTime().Unix(),
+			IssuerPublicKey:  block.IssuerPublicKey().Bytes(),
+			IssuingTime:      block.IssuingTime().Unix(),
 			Signature:        block.Signature().Bytes(),
 			BlockContentHash: blockContentHash[:],
 		}
