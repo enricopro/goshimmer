@@ -3,6 +3,7 @@ package epochproof
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 	epp "github.com/iotaledger/goshimmer/packages/node/epochproof/epochproofproto"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/hive.go/core/identity"
@@ -26,6 +27,35 @@ func (m *Manager) requestECSupporters(ei epoch.Index, ec epoch.EC, to ...identit
 	packet := &epp.Packet{Body: &epp.Packet_ECSupportersRequest{ECSupportersRequest: supportersReq}}
 	m.p2pManager.Send(packet, protocolID, to...)
 	m.log.Debugw("sent EC supporters request", "EI", ei)
+}
+
+func (m *Manager) sendECSupporters(supporterBlocks []*tangleold.Block, to ...identity.ID) error {
+	epochSupportersElements := make([]*epp.ECSupporter, len(supporterBlocks))
+
+	for i, block := range supporterBlocks {
+		blockContentHash, err := block.ContentHash()
+		if err != nil {
+			return errors.Wrap(err, "failed to get block content hash")
+		}
+		epochSupportersElements[i] = &epp.ECSupporter{
+			NodeID:           identity.NewID(block.IssuerPublicKey()).Bytes(),
+			Timestamp:        block.IssuingTime().Unix(),
+			Signature:        block.Signature().Bytes(),
+			BlockContentHash: blockContentHash[:],
+		}
+	}
+
+	packet := &epp.Packet{Body: &epp.Packet_ECSupporters{
+		ECSupporters: &epp.ECSupporters{
+			ECSupporters: epochSupportersElements,
+		},
+	}}
+
+	m.p2pManager.Send(packet, protocolID, to...)
+
+	m.log.Debugw("sent epoch supporters")
+
+	return nil
 }
 
 func sendNegotiationMessage(ps *p2p.PacketsStream) error {

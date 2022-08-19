@@ -2,6 +2,7 @@ package epochproof
 
 import (
 	"context"
+
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
@@ -41,7 +42,7 @@ func init() {
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func(t *tangleold.Tangle, p2pManager *p2p.Manager) *epochproof.Manager {
-			return epochproof.NewManager(p2pManager, deps.WarpsyncMgr, deps.NotarizationMgr, Plugin.Logger())
+			return epochproof.NewManager(p2pManager, deps.WarpsyncMgr, deps.NotarizationMgr, Plugin.Logger(), epochproof.WithSupportersInProof(Parameters.SupportersInProof))
 		}); err != nil {
 			Plugin.Panic(err)
 		}
@@ -64,7 +65,7 @@ func configure(_ *node.Plugin) {
 		if ourEC.ComputeEC() == otherEC.ComputeEC() {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), Parameters.SyncRangeTimeOut)
+		ctx, cancel := context.WithTimeout(context.Background(), Parameters.EpochProofTimeOut)
 		defer cancel()
 		deps.EpochProofMgr.RequestECChain(ctx, ei, otherNodeID, otherEC)
 

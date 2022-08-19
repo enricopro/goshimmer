@@ -16,7 +16,7 @@ type ParametersDefinition struct {
 	SyncRangeTimeOut time.Duration `default:"30s" usage:"the time after which a sync range is considered as failed"`
 }
 
-// Parameters contains the configuration parameters of the gossip plugin.
+// Parameters contains the configuration parameters of the warpsync plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {

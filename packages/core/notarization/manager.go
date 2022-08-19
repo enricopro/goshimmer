@@ -259,6 +259,18 @@ func (m *Manager) GetECRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err err
 	return
 }
 
+func (m *Manager) GetEpochSupporters(ei epoch.Index) (map[identity.ID]*tangleold.Block, error) {
+	m.epochSupportersMutex.RLock()
+	defer m.epochSupportersMutex.RUnlock()
+
+	supporters, exists := m.epochSupporters[ei]
+	if !exists {
+		return errors.Errorf("could not get epoch supporters")
+	}
+
+	return supporters
+}
+
 // LatestConfirmedEpochIndex returns the latest epoch index that has been confirmed.
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 	m.RLock()

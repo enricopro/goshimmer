@@ -26,6 +26,8 @@ type Manager struct {
 	warpSyncManager     *warpsync.Manager
 	notarizationManager *notarization.Manager
 
+	supportersInProof uint
+
 	supportersInProgress bool
 	supportersLock       sync.RWMutex
 	supportersChan       chan supportersProof
@@ -56,6 +58,14 @@ func NewManager(p2pManager *p2p.Manager, warpSyncManager *warpsync.Manager, nota
 
 	return m
 }
+
+// WithSupportersInProof allows to set how many top supporters will be returned when proving an epoch's weight.
+func WithSupportersInProof(supportersInProof uint) options.Option[Manager] {
+	return func(m *Manager) {
+		m.supportersInProof = supportersInProof
+	}
+}
+
 
 func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *identity.Identity, competingECRecord *epoch.ECRecord) error {
 	m.startRetrievingSupporters()
@@ -90,7 +100,6 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *id
 
 	select {
 	case supportersOfCompetingChain := <-m.supportersChan:
-
 		voteManager.AddSupporters(competingECRecord.ComputeEC(), supportersOfCompetingChain.supporters)
 
 		m.selectHeaviestChain(forkingManaVector)

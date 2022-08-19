@@ -452,23 +452,33 @@ func (m *Block) FromBytes(bytes []byte) (err error) {
 
 // VerifySignature verifies the Signature of the block.
 func (m *Block) VerifySignature() (valid bool, err error) {
-	blkBytes, err := m.Bytes()
+	contentHash, err := m.ContentHash()
 	if err != nil {
-		return false, errors.Errorf("failed to create block bytes: %w", err)
+		return false, errors.Wrap(err, "failed to create content hash")
 	}
-	signature := m.Signature()
 
+	signature := m.Signature()
 	ecRecord := epoch.NewECRecord(m.EI())
 	ecRecord.SetECR(m.ECR())
 	ecRecord.SetPrevEC(m.PrevEC())
-	contentLength := len(blkBytes) - len(signature)
-	contentHash := blake2b.Sum256(blkBytes[:contentLength])
+
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), m.IssuingTime(), serix.WithValidation())
 	if err != nil {
 		return false, err
 	}
 
 	return m.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(ecRecord.ComputeEC().Bytes(), issuingTimeBytes, contentHash[:]), signature), nil
+}
+
+// ContentHash returns the hash of the block content.
+func (m *Block) ContentHash() (contentHashBytes [32]byte, err error) {
+	blkBytes, err := m.Bytes()
+	if err != nil {
+		return [32]byte{}, errors.Errorf("failed to create block bytes: %w", err)
+	}
+	contentLength := len(blkBytes) - len(m.Signature())
+	contentHashBytes = blake2b.Sum256(blkBytes[:contentLength])
+	return
 }
 
 // IDBytes implements Element interface in scheduler NodeQueue that returns the BlockID of the block in bytes.
