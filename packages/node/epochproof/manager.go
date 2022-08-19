@@ -3,6 +3,7 @@ package epochproof
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -10,18 +11,22 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
-	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/iotaledger/hive.go/core/typeutils"
-	"github.com/iotaledger/hive.go/serix"
 )
 
 const (
 	protocolID = "epochproof/0.0.1"
 )
+
+type ecVote struct {
+	ecRecord  *epoch.ECRecord
+	timestamp time.Time
+}
 
 type Manager struct {
 	p2pManager          *p2p.Manager
@@ -35,6 +40,8 @@ type Manager struct {
 	supportersChan       chan supportersProof
 	supporterStopChan    chan struct{}
 
+	competingECCTracker *competingECCTracker
+
 	log *logger.Logger
 
 	stopped typeutils.AtomicBool
@@ -46,6 +53,7 @@ func NewManager(p2pManager *p2p.Manager, warpSyncManager *warpsync.Manager, nota
 		p2pManager:          p2pManager,
 		warpSyncManager:     warpSyncManager,
 		notarizationManager: notarizationManager,
+		competingECCTracker: NewCompetingChainTracker(),
 		log:                 log,
 	}
 
@@ -67,8 +75,7 @@ func WithSupportersInProof(supportersInProof uint) options.Option[Manager] {
 		m.supportersInProof = supportersInProof
 	}
 }
-
-func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *identity.Identity, competingECRecord *epoch.ECRecord) error {
+func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, competingECRecord *epoch.ECRecord) error {
 	m.startRetrievingSupporters()
 	defer m.stopRetrievingSupporters()
 
@@ -96,19 +103,19 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, nodeID *id
 	if err != nil {
 		return errors.Wrapf(err, "failed to get mana vector for forking point %d", forkingPoint)
 	}
-
-	confirmedEC := confirmedECRecord.ComputeEC()
-	m.requestECSupporters(ei, confirmedEC)
+	competingEC := competingECRecord.ComputeEC()
+	m.requestECSupporters(competingECRecord.EI(), competingEC)
 
 	select {
 	case supportersOfCompetingChain := <-m.supportersChan:
-		filteredSupporters := filterValidSupporters(supportersOfCompetingChain, confirmedEC)
-		voteManager.AddSupporters(competingECRecord.ComputeEC(), supportersOfCompetingChain.supporters)
+		filteredSupporters := filterValidSupporters(supportersOfCompetingChain, competingEC)
+		m.competingECCTracker.updateCompetingECSupporters(filteredSupporters, competingECRecord, competingECChain, latestConfirmedEI)
 
-		m.selectHeaviestChain(forkingManaVector)
+		m.competingECCTracker.selectHeaviestChain(forkingManaVector)
 	case <-ctx.Done():
 		return errors.Errorf("failed to get supporters proof for epoch %d: %v", ei, ctx.Err())
 	}
+	return nil
 }
 
 func (m *Manager) startRetrievingSupporters() {
@@ -157,17 +164,17 @@ func (m *Manager) Stop() {
 }
 
 func (m *Manager) isCompetingChainHeavier(manaVectorAtForkingPoint mana.BaseManaVector) (isHeavier bool, err error) {
-	// TODO: use votesmanager to get supporters on each side of the chain
-	var competingChainWeight, ourChainWeight float64
-	for _, supporter := range supportersOfCompetingChain {
-		supporterMana, _, err := manaVectorAtForkingPoint.GetMana(supporter.nodeID)
-		if err != nil {
-			return false, errors.Wrap(err, "failed to get mana for supporter")
-		}
-		competingChainWeight += supporterMana
-	}
+	// TODO: use votes manager to get supporters on each side of the chain
+	//var competingChainWeight, ourChainWeight float64
+	//for _, supporter := range supportersOfCompetingChain {
+	//	supporterMana, _, err := manaVectorAtForkingPoint.GetMana(supporter.nodeID)
+	//	if err != nil {
+	//		return false, errors.Wrap(err, "failed to get mana for supporter")
+	//	}
+	//	competingChainWeight += supporterMana
+	//}
 
-	vm.AddVote(conflictID, supporter, timestamp)
+	//vm.AddVote(conflictID, supporter, timestamp)
 
 	return false, nil
 

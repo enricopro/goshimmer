@@ -65,9 +65,10 @@ func configure(_ *node.Plugin) {
 		if ourEC.ComputeEC() == otherEC.ComputeEC() {
 			return
 		}
+		voteIssuingTime := block.Block.IssuingTime()
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.EpochProofTimeOut)
 		defer cancel()
-		deps.EpochProofMgr.RequestECChain(ctx, ei, otherNodeID, otherEC)
+		deps.EpochProofMgr.RequestECChain(ctx, ei, otherEC)
 
 	}))
 }
