@@ -53,22 +53,22 @@ func configure(_ *node.Plugin) {
 	deps.Tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(block *tangleold.BlockStoredEvent) {
 		ei := block.Block.EI()
 
-		otherEC := epoch.NewECRecord(ei)
-		otherEC.SetECR(block.Block.ECR())
-		otherEC.SetPrevEC(block.Block.PrevEC())
+		otherECRecord := epoch.NewECRecord(ei)
+		otherECRecord.SetECR(block.Block.ECR())
+		otherECRecord.SetPrevEC(block.Block.PrevEC())
 		ourEC, err := deps.NotarizationMgr.GetECRecord(ei)
 		// ignore the encountered commitment as it is either far in the pas, or we don't have this epoch committable yet
 		if err != nil {
 			return
 		}
 		otherNodeID := identity.New(block.Block.IssuerPublicKey())
-		if ourEC.ComputeEC() == otherEC.ComputeEC() {
+		if ourEC.ComputeEC() == otherECRecord.ComputeEC() {
 			return
 		}
 		voteIssuingTime := block.Block.IssuingTime()
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.EpochProofTimeOut)
 		defer cancel()
-		deps.EpochProofMgr.RequestECChain(ctx, ei, otherEC)
+		deps.EpochProofMgr.RequestECChain(ctx, ei, otherECRecord)
 
 	}))
 }

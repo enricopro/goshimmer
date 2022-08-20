@@ -82,12 +82,6 @@ type EpochCommittableEvent struct {
 type EpochConfirmedEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
-	// ECRecord is the ec root of committable epoch.
-	ECRecord *epoch.ECRecord
-	// EpochDiffCreated is the list of outputs created in the epoch.
-	EpochDiffCreated []*ledger.OutputWithMetadata
-	// EpochDiffSpent is the list of outputs spent in the epoch.
-	EpochDiffSpent []*ledger.OutputWithMetadata
 }
 
 // CompetingCommitmentDetectedEvent is a container that acts as a dictionary for the CompetingCommitmentDetectedEvent event related parameters.

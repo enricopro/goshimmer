@@ -125,7 +125,7 @@ func NewLedgerUTXOStatesProducer(lastConfirmedEpoch epoch.Index, nmgr *notarizat
 
 // NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewEpochDiffsProducer(lastConfirmedEpoch, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
-	epochDiffs, err := nmgr.GetEpochDiffs(lastConfirmedEpoch, latestCommitableEpoch)
+	epochDiffs, err := nmgr.GetEpochDiffs(lastConfirmedEpoch + 1, latestCommitableEpoch)
 
 	return func() (map[epoch.Index]*ledger.EpochDiff, error) {
 		return epochDiffs, err

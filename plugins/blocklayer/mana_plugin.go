@@ -44,7 +44,7 @@ var (
 	allowedPledgeNodes           map[mana.Type]AllowedPledge
 	onTransactionAcceptedClosure *event.Closure[*ledger.TransactionAcceptedEvent]
 	onManaVectorToUpdateClosure  *event.Closure[*notarization.ManaVectorUpdateEvent]
-	onEpochConfirmation          *event.Closure[*notarization.EpochConfirmedEvent]
+	onEpochConfirmed             *event.Closure[*notarization.EpochConfirmedEvent]
 
 	// ConfirmedCManaVector is the mana vector at the confirmed epoch.
 	// It used to evaluate competing EC chains using the mana vector at the common forking point.
@@ -69,9 +69,11 @@ func configureManaPlugin(*node.Plugin) {
 	onManaVectorToUpdateClosure = event.NewClosure(func(event *notarization.ManaVectorUpdateEvent) {
 		baseManaVectors[mana.ConsensusMana].BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
 	})
-	// ConfirmedCManaVector is always kept at the confirmed epoch. 
-	onEpochConfirmation = event.NewClosure(func(event *notarization.EpochConfirmedEvent) {
-		ConfirmedCManaVector.BookEpoch(event.EpochDiffCreated, event.EpochDiffSpent)
+	// ConfirmedCManaVector is always kept at the confirmed epoch - Mana EpochDelay.
+	onEpochConfirmed = event.NewClosure(func(event *notarization.EpochConfirmedEvent) {
+		confirmedEI := event.EI
+		spent, created := deps.NotarizationMgr.GetEpochDiff(confirmedEI - epoch.Index(ManaParameters.EpochDelay))
+		ConfirmedCManaVector.BookEpoch(spent, created)
 	})
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
@@ -103,6 +105,8 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.Ledger.Events.TransactionAccepted.Attach(onTransactionAcceptedClosure)
+	deps.NotarizationMgr.Events.EpochConfirmed.Attach(onEpochConfirmed)
+
 }
 
 func onTransactionAccepted(transactionID utxo.TransactionID) {

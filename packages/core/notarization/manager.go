@@ -38,7 +38,6 @@ type Manager struct {
 	pendingConflictsCounters    *shrinkingmap.ShrinkingMap[epoch.Index, uint64]
 	epochSupportersMutex        sync.RWMutex
 	epochSupporters             *shrinkingmap.ShrinkingMap[epoch.Index, map[identity.ID]*tangleold.Block]
-	epochConflicts              *conflictdag.ConflictDAG[epoch.EC, epoch.Index]
 	log                         *logger.Logger
 	Events                      *Events
 	bootstrapped                bool
@@ -61,7 +60,6 @@ func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangleold.Tan
 		epochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: shrinkingmap.New[epoch.Index, uint64](),
 		epochSupporters:          shrinkingmap.New[epoch.Index, map[identity.ID]*tangleold.Block](),
-		epochConflicts:           conflictdag.New[epoch.EC, epoch.Index](),
 		log:                      options.Log,
 		options:                  options,
 		Events: &Events{
@@ -212,12 +210,17 @@ func (m *Manager) LoadECandEIs(header *ledger.SnapshotHeader) {
 // GetEpochDiffs returns the EpochDiffs for the given epoch range, it should be called after acquiring the lock.
 func (m *Manager) GetEpochDiffs(from, to epoch.Index) (map[epoch.Index]*ledger.EpochDiff, error) {
 	epochDiffsMap := make(map[epoch.Index]*ledger.EpochDiff)
-	for ei := from + 1; ei <= to; ei++ {
-		spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	for ei := from; ei <= to; ei++ {
+		spent, created := m.GetEpochDiff(ei)
 		epochDiffsMap[ei] = ledger.NewEpochDiff(spent, created)
 	}
 
 	return epochDiffsMap, nil
+}
+
+func (m *Manager) GetEpochDiff(ei epoch.Index) (spent, created []*ledger.OutputWithMetadata) {
+	spent, created = m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	return
 }
 
 // SnapshotLedgerState returns the all confirmed OutputsWithMetadata when a snapshot is created, it should be called in after acquiring the lock.
@@ -701,13 +704,10 @@ func (m *Manager) moveLatestCommittableEpoch(currentEpoch epoch.Index) ([]*Epoch
 
 		// TODO: we pretend that a new epoch always gets confirmed when we advance the latest committable.
 		{
-			spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
-			m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(ei)
+			confirmingEpoch := ei - m.epochCommitmentFactory.confirmationDelay
+			m.epochCommitmentFactory.storage.setLastConfirmedEpochIndex(confirmingEpoch)
 			m.Events.EpochConfirmed.Trigger(&EpochConfirmedEvent{
-				EI:               ei - epoch.Index(m.epochCommitmentFactory.confirmationDelay),
-				ECRecord:         ecRecord,
-				EpochDiffSpent:   spent,
-				EpochDiffCreated: created,
+				EI: confirmingEpoch,
 			})
 		}
 

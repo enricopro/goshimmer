@@ -20,7 +20,7 @@ func (m *Manager) manaVectorForEpoch(targetEpoch epoch.Index) (manaVector mana.B
 	}
 
 	manaVector = blocklayer.ConfirmedCManaVector.Clone()
-	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei+1, targetEpoch)
+	epochDiffs, err := m.notarizationManager.GetEpochDiffs(cei + 1, targetEpoch)
 	m.notarizationManager.RUnlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get epoch diffs")

@@ -3,7 +3,6 @@ package epochproof
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
@@ -22,11 +21,6 @@ import (
 const (
 	protocolID = "epochproof/0.0.1"
 )
-
-type ecVote struct {
-	ecRecord  *epoch.ECRecord
-	timestamp time.Time
-}
 
 type Manager struct {
 	p2pManager          *p2p.Manager
@@ -110,8 +104,12 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, competingE
 	case supportersOfCompetingChain := <-m.supportersChan:
 		filteredSupporters := filterValidSupporters(supportersOfCompetingChain, competingEC)
 		m.competingECCTracker.updateCompetingECSupporters(filteredSupporters, competingECRecord, competingECChain, latestConfirmedEI)
-
-		m.competingECCTracker.selectHeaviestChain(forkingManaVector)
+		targetEpoch := forkingPoint + 1
+		ownValidators, err := m.notarizationManager.GetEpochSupporters(targetEpoch)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get epoch supporters for epoch %d", targetEpoch)
+		}
+		m.competingECCTracker.isCompetingChainHeavier(targetEpoch, forkingManaVector, ownValidators, competingECChain)
 	case <-ctx.Done():
 		return errors.Errorf("failed to get supporters proof for epoch %d: %v", ei, ctx.Err())
 	}
