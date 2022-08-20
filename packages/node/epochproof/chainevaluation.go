@@ -68,23 +68,29 @@ func (c *competingECCTracker) isCompetingChainHeavier(targetEpoch epoch.Index, f
 	c.RLock()
 	defer c.RUnlock()
 
-	var ownWeight, competingWeight float64
-	for validator := range ownValidators {
-		validatorWeight, _, err := forkingPointManaVector.GetMana(validator)
-		if err != nil {
-			return false, errors.Wrap(err, "failed to get validator weight")
-		}
-		ownWeight += validatorWeight
+	ownWeight, err := calculateOwnWeight(ownValidators, forkingPointManaVector)
+	if err != nil {
+		return false, errors.Wrap(err, "calculate own weight failed")
 	}
 
+	competingWeight, err := c.calculateCompetingWeight(targetEpoch, forkingPointManaVector, competingECChain)
+	if err != nil {
+		return false, errors.Wrap(err, "calculate competing weight failed")
+	}
+
+	return competingWeight > ownWeight, nil
+}
+
+func (c *competingECCTracker) calculateCompetingWeight(targetEpoch epoch.Index, forkingPointManaVector mana.BaseManaVector,
+	competingECChain epoch.ECChain) (competingWeight float64, err error) {
 	supportersEI, exists := c.competingECSupporters.Get(targetEpoch)
 	if !exists {
-		return false, errors.Errorf("no competing supporters for epoch %d", targetEpoch)
+		return 0, errors.Errorf("no competing supporters for epoch %d", targetEpoch)
 	}
 	competingEC := competingECChain[targetEpoch]
 	supportersEC, exists := supportersEI[competingECChain[targetEpoch]]
 	if !exists {
-		return false, errors.Errorf("no competing supporters for epoch %d with EC %s", targetEpoch, competingEC)
+		return 0, errors.Errorf("no competing supporters for epoch %d with EC %s", targetEpoch, competingEC)
 	}
 
 	for _, supporterEC := range supportersEC {
@@ -93,12 +99,22 @@ func (c *competingECCTracker) isCompetingChainHeavier(targetEpoch epoch.Index, f
 		}
 		supporterWeight, _, err := forkingPointManaVector.GetMana(supporterEC)
 		if err != nil {
-			return false, errors.Wrap(err, "failed to get supporter weight")
+			return 0, errors.Wrap(err, "failed to get supporter weight")
 		}
 		competingWeight += supporterWeight
 	}
+	return competingWeight, nil
+}
 
-	return competingWeight > ownWeight, nil
+func calculateOwnWeight(ownValidators map[identity.ID]*tangleold.Block, forkingPointManaVector mana.BaseManaVector) (ownWeight float64, err error) {
+	for validator := range ownValidators {
+		validatorWeight, _, err := forkingPointManaVector.GetMana(validator)
+		if err != nil {
+			return 0, errors.Wrap(err, "failed to get validator weight")
+		}
+		ownWeight += validatorWeight
+	}
+	return ownWeight, nil
 }
 
 func isOnChain(ec epoch.EC, ecChain epoch.ECChain) bool {
