@@ -108,7 +108,10 @@ func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, competingE
 		if err != nil {
 			return errors.Wrapf(err, "failed to get epoch supporters for epoch %d", targetEpoch)
 		}
-		m.competingECCTracker.isCompetingChainHeavier(targetEpoch, forkingManaVector, ownValidators, competingECChain)
+		if isHeavier, err := m.competingECCTracker.isCompetingChainHeavier(targetEpoch, forkingManaVector, ownValidators, competingECChain); !isHeavier {
+			return err
+		}
+		// TODO: reset ledgerstate and warpsync competing chain.
 	case <-ctx.Done():
 		return errors.Errorf("failed to get supporters proof for epoch %d: %v", ei, ctx.Err())
 	}
