@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/mana"
 	"github.com/iotaledger/goshimmer/packages/core/notarization"
 	"github.com/iotaledger/goshimmer/packages/node/p2p"
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
@@ -159,23 +158,6 @@ func (m *Manager) IsStopped() bool {
 func (m *Manager) Stop() {
 	m.stopped.Set()
 	m.p2pManager.UnregisterProtocol(protocolID)
-}
-
-func (m *Manager) isCompetingChainHeavier(manaVectorAtForkingPoint mana.BaseManaVector) (isHeavier bool, err error) {
-	// TODO: use votes manager to get supporters on each side of the chain
-	//var competingChainWeight, ourChainWeight float64
-	//for _, supporter := range supportersOfCompetingChain {
-	//	supporterMana, _, err := manaVectorAtForkingPoint.GetMana(supporter.nodeID)
-	//	if err != nil {
-	//		return false, errors.Wrap(err, "failed to get mana for supporter")
-	//	}
-	//	competingChainWeight += supporterMana
-	//}
-
-	//vm.AddVote(conflictID, supporter, timestamp)
-
-	return false, nil
-
 }
 
 func submitTask[P any](packetProcessor func(packet P, nbr *p2p.Neighbor), packet P, nbr *p2p.Neighbor) error {
