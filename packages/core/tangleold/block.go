@@ -458,7 +458,7 @@ func (m *Block) VerifySignature() (valid bool, err error) {
 	}
 	signature := m.Signature()
 
-	ecRecord := epoch.NewECRecord(m.EI())
+	ecRecord := epoch.NewECRecord(m.ECRecordEI())
 	ecRecord.SetECR(m.ECR())
 	ecRecord.SetPrevEC(m.PrevEC())
 	contentLength := len(blkBytes) - len(signature)
