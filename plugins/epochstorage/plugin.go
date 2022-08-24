@@ -176,13 +176,13 @@ func checkEpochContentLimit() {
 	}
 }
 
-func GetCommittableEpochs() (ecRecords map[epoch.Index]*epoch.ECRecord) {
+func GetCommittableEpochs() (ecRecordChain epoch.ECRecordChain) {
 	committableEpochsMutex.RLock()
 	defer committableEpochsMutex.RUnlock()
 
-	ecRecords = make(map[epoch.Index]*epoch.ECRecord, committableEpochs.Size())
+	ecRecordChain = make(epoch.ECRecordChain, committableEpochs.Size())
 	committableEpochs.ForEach(func(ei epoch.Index, ecRecord *epoch.ECRecord) bool {
-		ecRecords[ei] = ecRecord
+		ecRecordChain[ei] = ecRecord
 		return true
 	})
 

@@ -3,11 +3,12 @@ package epoch
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/core/generics/set"
 	"github.com/iotaledger/hive.go/core/identity"
-	"strings"
-	"time"
 
 	"github.com/iotaledger/hive.go/core/byteutils"
 	"github.com/iotaledger/hive.go/core/generics/model"
@@ -100,6 +101,12 @@ type CommitmentRoots struct {
 	StateRoot         MerkleRoot `serix:"2"`
 	ManaRoot          MerkleRoot `serix:"3"`
 }
+
+// ECChain represents a chain of EC hashes.
+type ECChain map[Index]EC
+
+// ECRecordChain represents a chain of ECRecords.
+type ECRecordChain map[Index]*ECRecord
 
 // ECRecord is a storable object represents the ecRecord of an epoch.
 type ECRecord struct {

@@ -17,12 +17,12 @@ type neighborCommitment struct {
 	ecRecord *epoch.ECRecord
 }
 
-func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain map[epoch.Index]epoch.EC, validPeers *set.AdvancedSet[identity.ID], err error) {
+func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain epoch.ECChain, validPeers *set.AdvancedSet[identity.ID], err error) {
 	m.startValidation()
 	defer m.endValidation()
 
-	ecChain = make(map[epoch.Index]epoch.EC)
-	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
+	ecChain = make(epoch.ECChain)
+	ecRecordChain := make(epoch.ECRecordChain)
 	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsIDs()...)
 	activePeers := set.NewAdvancedSet[identity.ID]()
 	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
