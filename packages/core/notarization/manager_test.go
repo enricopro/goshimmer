@@ -7,12 +7,15 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/conflictdag"
 
+	"github.com/iotaledger/goshimmer/packages/core/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/ledger"
+	"github.com/iotaledger/goshimmer/packages/core/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/core/tangleold"
 
 	"github.com/iotaledger/hive.go/core/generics/event"
 	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -235,6 +238,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.MerkleRoot{}, ecRecord.PrevEC())
 		event.Loop.WaitUntilAllTasksProcessed()
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
+
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3", "Block2"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -351,6 +356,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block4", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block3"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block4").WaitUntilAllTasksProcessed()
 
@@ -369,6 +375,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		EC1 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(2))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(2))
+
 		testFramework.CreateBlock("Block5", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block4"), tangleold.WithIssuer(nodes["A"].PublicKey()), tangleold.WithInputs("A"), tangleold.WithOutput("C", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block5").WaitUntilAllTasksProcessed()
 
@@ -386,7 +394,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		EC2 = ecRecord.ComputeEC()
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(3))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(3))
+
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("B"), tangleold.WithOutput("D", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
@@ -406,7 +415,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(4))
-		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4), []*ledger.OutputWithMetadata{}, []*ledger.OutputWithMetadata{})
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(4))
 		testFramework.CreateBlock("Block7", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block6"), tangleold.WithIssuer(nodes["C"].PublicKey()), tangleold.WithInputs("C"), tangleold.WithOutput("E", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block7").WaitUntilAllTasksProcessed()
 
@@ -460,7 +469,6 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
-
 	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
@@ -583,6 +591,7 @@ func TestManager_UpdateStateMutationTreeWithConflict(t *testing.T) {
 		require.NoError(t, err)
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block8", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block7"), tangleold.WithIssuer(nodes["D"].PublicKey()), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block8").WaitUntilAllTasksProcessed()
 
@@ -625,7 +634,6 @@ func TestManager_TransactionInclusionUpdate(t *testing.T) {
 
 	// Make Current Epoch be epoch 5
 	genesisTime := time.Now().Add(-epochInterval * 5)
-
 	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, time.Now)
 	testFramework, eventHandlerMock, notarizationMgr := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
@@ -790,7 +798,6 @@ func TestManager_DiffUTXOs(t *testing.T) {
 			nodes["E"].ID(): 10,
 		}
 	}
-
 	epochInterval := 1 * time.Second
 
 	// Make Current Epoch be epoch 5
@@ -892,6 +899,7 @@ func TestManager_DiffUTXOs(t *testing.T) {
 		require.Equal(t, epoch.Index(0), ecRecord.EI())
 
 		eventHandlerMock.Expect("EpochCommittable", epoch.Index(1))
+		eventHandlerMock.Expect("ManaVectorUpdate", epoch.Index(1))
 		testFramework.CreateBlock("Block6", tangleold.WithIssuingTime(issuingTime), tangleold.WithStrongParents("Block5"), tangleold.WithIssuer(nodes["E"].PublicKey()), tangleold.WithInputs("G5"), tangleold.WithOutput("H6", 500), tangleold.WithECRecord(ecRecord))
 		testFramework.IssueBlocks("Block6").WaitUntilAllTasksProcessed()
 
@@ -991,7 +999,6 @@ func TestManager_ActivityTree(t *testing.T) {
 	//	ei := epoch.IndexFromTime(time.Now())
 	//	weightProvider.Update(ei, node.ID())
 	//}
-
 	weightProvider = tangleold.NewCManaWeightProvider(manaRetrieverMock, timeRetrieverFunc)
 	testFramework, _, _ := setupFramework(t, genesisTime, epochInterval, epochInterval*2, tangleold.ApprovalWeights(weightProvider), tangleold.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 
@@ -1059,4 +1066,152 @@ func TestManager_ActivityTree(t *testing.T) {
 		}
 	}
 
+}
+
+func setupFramework(t *testing.T, genesisTime time.Time, epochInterval time.Duration, minCommittable time.Duration, options ...tangleold.Option) (testFramework *tangleold.BlockTestFramework, eventMock *EventMock, m *Manager) {
+	epoch.Duration = int64(epochInterval.Seconds())
+
+	testTangle := tangleold.NewTestTangle(append([]tangleold.Option{tangleold.StartSynced(true), tangleold.GenesisTime(genesisTime)}, options...)...)
+	testTangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 0
+
+	testFramework = tangleold.NewBlockTestFramework(testTangle, tangleold.WithGenesisOutput("A", 500), tangleold.WithGenesisOutput("B", 500))
+
+	// set up finality gadget
+	testOpts := []acceptance.Option{
+		acceptance.WithConflictThresholdTranslation(TestConflictAcceptanceStateTranslation),
+		acceptance.WithBlockThresholdTranslation(TestBlockAcceptanceStateTranslation),
+	}
+	sfg := acceptance.NewSimpleFinalityGadget(testTangle, testOpts...)
+	testTangle.ConfirmationOracle = sfg
+
+	// set up notarization manager
+	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, 0)
+	m = NewManager(ecFactory, testTangle, MinCommittableEpochAge(minCommittable), BootstrapWindow(minCommittable*2), Log(logger.NewExampleLogger("test")))
+
+	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+		ecRecord, err = m.GetLatestEC()
+		require.NoError(t, err)
+		latestConfirmedEpoch, err = m.LatestConfirmedEpochIndex()
+		require.NoError(t, err)
+		return ecRecord, latestConfirmedEpoch, nil
+	}
+	testTangle.Options.CommitmentFunc = commitmentFunc
+
+	testTangle.Setup()
+	registerToTangleEvents(sfg, testTangle)
+	loadSnapshot(m, testFramework)
+
+	eventMock = NewEventMock(t, m)
+
+	return testFramework, eventMock, m
+}
+
+func assertExistenceOfBlock(t *testing.T, testFramework *tangleold.BlockTestFramework, m *Manager, results map[string]bool) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	for alias, result := range results {
+		blkID := testFramework.Block(alias).ID()
+		p, err := m.GetBlockInclusionProof(blkID)
+		require.NoError(t, err)
+		var ei epoch.Index
+		m.tangle.Storage.Block(blkID).Consume(func(block *tangleold.Block) {
+			t := block.IssuingTime()
+			ei = epoch.IndexFromTime(t)
+		})
+		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, blkID)
+		assert.Equal(t, result, valid, "block %s not included in epoch %s", alias, ei)
+	}
+}
+
+func assertExistenceOfTransaction(t *testing.T, testFramework *tangleold.BlockTestFramework, m *Manager, results map[string]bool) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	for alias, result := range results {
+		var ei epoch.Index
+		var notConfirmed bool
+
+		txID := testFramework.Transaction(alias).ID()
+
+		m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+			if txMeta.InclusionTime().IsZero() {
+				notConfirmed = true
+				return
+			}
+			ei = epoch.IndexFromTime(txMeta.InclusionTime())
+		})
+
+		if notConfirmed {
+			assert.Equal(t, result, false, "transaction %s not confirmed", alias)
+			return
+		}
+
+		p, err := m.GetTransactionInclusionProof(txID)
+		require.NoError(t, err)
+
+		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
+		assert.Equal(t, result, valid, "transaction %s inclusion differs in epoch %s", alias, ei)
+	}
+}
+
+func assertEpochDiff(t *testing.T, testFramework *tangleold.BlockTestFramework, m *Manager, ei epoch.Index, expectedSpentAliases, expectedCreatedAliases []string) {
+	event.Loop.WaitUntilAllTasksProcessed()
+
+	spent, created := m.epochCommitmentFactory.loadDiffUTXOs(ei)
+	expectedSpentIDs := utxo.NewOutputIDs()
+	expectedCreatedIDs := utxo.NewOutputIDs()
+	actualSpentIDs := utxo.NewOutputIDs()
+	actualCreatedIDs := utxo.NewOutputIDs()
+
+	for _, alias := range expectedSpentAliases {
+		expectedSpentIDs.Add(testFramework.Output(alias).ID())
+	}
+
+	for _, alias := range expectedCreatedAliases {
+		expectedCreatedIDs.Add(testFramework.Output(alias).ID())
+	}
+
+	for _, outputWithMetadata := range spent {
+		actualSpentIDs.Add(outputWithMetadata.ID())
+	}
+
+	for _, outputWithMetadata := range created {
+		actualCreatedIDs.Add(outputWithMetadata.ID())
+	}
+
+	assert.True(t, expectedSpentIDs.Equal(actualSpentIDs), "spent outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedSpentIDs, actualSpentIDs)
+	assert.True(t, expectedCreatedIDs.Equal(actualCreatedIDs), "created outputs for epoch %d do not match:\nExpected: %s\nActual: %s", ei, expectedCreatedIDs, actualCreatedIDs)
+}
+
+func loadSnapshot(m *Manager, testFramework *tangleold.BlockTestFramework) {
+	snapshot := testFramework.Snapshot()
+	header := &ledger.SnapshotHeader{}
+	header.DiffEpochIndex = epoch.Index(0)
+	header.FullEpochIndex = epoch.Index(0)
+
+	var createMetadata []*ledger.OutputWithMetadata
+	for _, metadata := range snapshot.OutputsWithMetadata {
+		createMetadata = append(createMetadata, metadata)
+	}
+	header.OutputWithMetadataCount = uint64(len(snapshot.OutputsWithMetadata))
+	snapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
+	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
+
+	ecRecord := epoch.NewECRecord(header.FullEpochIndex)
+	ecRecord.SetECR(epoch.MerkleRoot{})
+	ecRecord.SetPrevEC(epoch.MerkleRoot{})
+	header.LatestECRecord = ecRecord
+	snapshot.Header = header
+
+	m.LoadOutputsWithMetadata(snapshot.OutputsWithMetadata)
+	m.LoadECandEIs(snapshot.Header)
+	m.LoadActivityLogs(snapshot.EpochActiveNodes)
+}
+
+func registerToTangleEvents(sfg *acceptance.Gadget, testTangle *tangleold.Tangle) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangleold.MarkerWeightChangedEvent) {
+		sfg.HandleMarker(e.Marker, e.Weight)
+	}))
+	testTangle.ApprovalWeightManager.Events.ConflictWeightChanged.Hook(event.NewClosure(func(e *tangleold.ConflictWeightChangedEvent) {
+		sfg.HandleConflict(e.ConflictID, e.Weight)
+	}))
 }
