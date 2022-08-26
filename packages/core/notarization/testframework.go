@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/database"
 	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/iotaledger/hive.go/core/types"
-	"github.com/iotaledger/hive.go/types"
 )
 
 const snapshotDepth = 10
@@ -39,7 +38,7 @@ func (t *TestFramework) CreateChain(ei epoch.Index, chainAlias string, opts ...o
 	manager, exists := t.notarizationManagers[chainAlias]
 	if !exists {
 		db, _ := database.NewMemDB()
-		epochCommitmentFactory := NewEpochCommitmentFactory(db.NewStore(), t.tangle, snapshotDepth)
+		epochCommitmentFactory := NewEpochCommitmentFactory(db.NewStore(), snapshotDepth)
 		manager = NewManager(epochCommitmentFactory, t.tangle)
 		t.notarizationManagers[chainAlias] = manager
 	}
