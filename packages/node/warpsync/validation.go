@@ -17,13 +17,14 @@ type neighborCommitment struct {
 	ecRecord *epoch.ECRecord
 }
 
-func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain epoch.ECChain, validPeers *set.AdvancedSet[identity.ID], err error) {
+func (m *Manager) validateBackwards(ctx context.Context, start, end epoch.Index, startEC, endPrevEC epoch.EC) (ecChain epoch.ECChain, validPeers *set.AdvancedSet[identity.ID], err error) {
 	m.startValidation()
 	defer m.stopValidation()
 
 	ecChain = make(epoch.ECChain)
-	ecRecordChain := make(map[epoch.Index]*epoch.ECRecord)
+	ecRecordChain := make(epoch.ECRecordChain)
 	validPeers = set.NewAdvancedSet(m.p2pManager.AllNeighborsIDs()...)
+	activePeers := set.NewAdvancedSet[identity.ID]()
 	neighborCommitments := make(map[epoch.Index]map[identity.ID]*neighborCommitment)
 
 	// We do not request the start nor the ending epoch, as we know the beginning (snapshot) and the end (tip received via gossip) of the chain.
@@ -48,6 +49,8 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.EI()
 			if m.isCommitmentInvalid(peerID, commitmentEI, start, end, validPeers, ecRecord) {
+
+			activePeers.Add(peerID)
 				continue
 			}
 
@@ -91,7 +94,11 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 						continue
 					}
 
-					// We store the valid commitment for this chain.
+					// If we already stored the target epoch for the chain, we just keep validating neighbors.
+					if _, exists := ecRecordChain[epochToValidate]; exists {
+						continue
+					}
+
 					ecRecordChain[epochToValidate] = proposedECRecord
 					ecChain[epochToValidate] = proposedECRecord.ComputeEC()
 				}
@@ -112,6 +119,7 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 					return nil, nil, errors.Errorf("obtained chain does not match expected starting point EC: expected %s, actual %s", startEC, syncedStartPrevEC)
 				}
 				m.log.Infof("range %d-%d validated", start, end)
+				validPeers = validPeers.Intersect(activePeers)
 				return ecChain, validPeers, nil
 			}
 
