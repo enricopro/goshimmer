@@ -125,7 +125,7 @@ func TestBlock_VerifySignature(t *testing.T) {
 	unsigned := NewBlock(NewParentBlockIDs().AddStrong(EmptyBlockID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{}, 0, epoch.NewECRecord(0))
 	assert.False(t, lo.PanicOnErr(unsigned.VerifySignature()))
 
-	ecRecord := epoch.NewECRecord(unsigned.EI())
+	ecRecord := epoch.NewECRecord(unsigned.ECRecordEI())
 	ecRecord.SetECR(unsigned.ECR())
 	ecRecord.SetPrevEC(unsigned.PrevEC())
 

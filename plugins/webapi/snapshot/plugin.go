@@ -48,8 +48,6 @@ func configure(_ *node.Plugin) {
 func DumpCurrentLedger(c echo.Context) (err error) {
 	header, err := deps.SnapshotMgr.CreateSnapshot(snapshotFileName)
 	if err != nil {
-	deps.NotarizationMgr.Lock()
-	defer deps.NotarizationMgr.Unlock()
 		Plugin.LogErrorf("unable to get snapshot bytes %s", err)
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}

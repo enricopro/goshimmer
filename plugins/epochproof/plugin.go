@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node/warpsync"
 	"github.com/iotaledger/hive.go/core/daemon"
 	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 )
@@ -51,8 +50,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	deps.Tangle.Storage.Events.BlockStored.Attach(event.NewClosure(func(block *tangleold.BlockStoredEvent) {
-		ei := block.Block.EI()
-
+		ei := block.Block.ECRecordEI()
 		otherECRecord := epoch.NewECRecord(ei)
 		otherECRecord.SetECR(block.Block.ECR())
 		otherECRecord.SetPrevEC(block.Block.PrevEC())
@@ -61,11 +59,9 @@ func configure(_ *node.Plugin) {
 		if err != nil {
 			return
 		}
-		otherNodeID := identity.New(block.Block.IssuerPublicKey())
 		if ourEC.ComputeEC() == otherECRecord.ComputeEC() {
 			return
 		}
-		voteIssuingTime := block.Block.IssuingTime()
 		ctx, cancel := context.WithTimeout(context.Background(), Parameters.EpochProofTimeOut)
 		defer cancel()
 		deps.EpochProofMgr.RequestECChain(ctx, ei, otherECRecord)

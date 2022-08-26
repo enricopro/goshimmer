@@ -106,6 +106,15 @@ func (f *EpochCommitmentFactory) ECRandRoots(ei epoch.Index) (ecr epoch.ECR, roo
 	return epoch.ComputeECR(roots.TangleRoot, roots.StateMutationRoot, roots.StateRoot, roots.ManaRoot), roots, nil
 }
 
+// InsertStateLeaf inserts the outputID to the state sparse merkle tree.
+func (f *EpochCommitmentFactory) insertStateLeaf(outputID utxo.OutputID) error {
+	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the state tree")
+	}
+	return nil
+}
+
 // removeStateLeaf removes the output ID from the ledger sparse merkle tree.
 func (f *EpochCommitmentFactory) removeStateLeaf(outputID utxo.OutputID) (bool, error) {
 	if exists, _ := f.stateRootTree.Has(outputID.Bytes()); !exists {
@@ -142,7 +151,8 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 	// remove leaf if mana is zero
 	if currentBalance <= 0 {
-		return removeLeaf(f.manaRootTree, accountBytes)
+		_, removeErr := removeLeaf(f.manaRootTree, accountBytes)
+		return removeErr
 	}
 
 	encodedBalanceBytes, encodeErr := serix.DefaultAPI.Encode(context.Background(), currentBalance, serix.WithValidation())
@@ -163,10 +173,10 @@ func (f *EpochCommitmentFactory) insertStateMutationLeaf(ei epoch.Index, txID ut
 }
 
 // removeStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
-func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) error {
+func (f *EpochCommitmentFactory) removeStateMutationLeaf(ei epoch.Index, txID utxo.TransactionID) (removed bool, err error) {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
+		return false, errors.Wrap(err, "could not get commitment while deleting state mutation leaf")
 	}
 	return removeLeaf(commitment.stateMutationTree, txID.Bytes())
 }
@@ -181,10 +191,10 @@ func (f *EpochCommitmentFactory) insertTangleLeaf(ei epoch.Index, blkID tangleol
 }
 
 // removeTangleLeaf removes the block ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) error {
+func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, blkID tangleold.BlockID) (removed bool, err error) {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
+		return false, errors.Wrap(err, "could not get commitment while deleting tangle leaf")
 	}
 	return removeLeaf(commitment.tangleTree, blkID.Bytes())
 }
@@ -199,10 +209,10 @@ func (f *EpochCommitmentFactory) insertActivityLeaf(ei epoch.Index, nodeID ident
 }
 
 // removeActivityLeaf removes the nodeID from the Activity sparse merkle tree.
-func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) error {
+func (f *EpochCommitmentFactory) removeActivityLeaf(ei epoch.Index, nodeID identity.ID) (removed bool, err error) {
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
-		return errors.Wrap(err, "could not get commitment while deleting activity leaf")
+		return false, errors.Wrap(err, "could not get commitment while deleting activity leaf")
 	}
 	return removeLeaf(commitment.activityTree, nodeID.Bytes())
 }
@@ -413,7 +423,7 @@ func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte
 
 	// Remove spent UTXOs from the state tree.
 	for _, spent := range spentOutputs {
-		err = removeLeaf(f.stateRootTree, spent.ID().Bytes())
+		_, err = removeLeaf(f.stateRootTree, spent.ID().Bytes())
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "could not remove state leaf")
 		}
@@ -440,15 +450,15 @@ func insertLeaf(tree *smt.SparseMerkleTree, keyBytes, valueBytes []byte) error {
 }
 
 // removeLeaf inserts the outputID to the provided sparse merkle tree.
-func removeLeaf(tree *smt.SparseMerkleTree, leaf []byte) error {
+func removeLeaf(tree *smt.SparseMerkleTree, leaf []byte) (removed bool, err error) {
 	exists, _ := tree.Has(leaf)
-	if exists {
-		_, err := tree.Delete(leaf)
-		if err != nil {
-			return errors.Wrap(err, "could not delete leaf from the tree")
-		}
+	if !exists {
+		return false, nil
 	}
-	return nil
+	if _, err := tree.Delete(leaf); err != nil {
+		return false, errors.Wrap(err, "could not delete leaf from the tree")
+	}
+	return true, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

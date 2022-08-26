@@ -138,7 +138,7 @@ func NewLedgerUTXOStatesProducer(nmgr *notarization.Manager) UTXOStatesProducerF
 
 // NewEpochDiffsProducer returns a OutputWithMetadataProducerFunc that provide OutputWithMetadatas from the ledger.
 func NewEpochDiffsProducer(fullEpochIndex, latestCommitableEpoch epoch.Index, nmgr *notarization.Manager) EpochDiffProducerFunc {
-Q	prodChan := make(chan *ledger.EpochDiff)
+	prodChan := make(chan *ledger.EpochDiff)
 	stopChan := make(chan struct{})
 	nmgr.SnapshotEpochDiffs(fullEpochIndex, latestCommitableEpoch, prodChan, stopChan)
 
@@ -274,10 +274,7 @@ func writeSolidEntryPoints(writeSeeker io.WriteSeeker, seps *SolidEntryPoints) e
 
 // NewActivityLogProducer returns an ActivityLogProducerFunc that provides activity log from weightProvider and notarization manager.
 func NewActivityLogProducer(notarizationMgr *notarization.Manager) ActivityLogProducerFunc {
-	activityLog, err := notarizationMgr.SnapshotEpochActivity()
-	if err != nil {
-		panic(err)
-	}
+	activityLog := notarizationMgr.SnapshotEpochActivity()
 	return func() (activityLogs epoch.SnapshotEpochActivity) {
 		return activityLog
 	}

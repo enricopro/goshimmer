@@ -49,11 +49,11 @@ func streamSnapshotDataFrom(
 
 	// read epochDiffs
 	for ei := header.FullEpochIndex + 1; ei <= header.DiffEpochIndex; ei++ {
-		epochDiffs, epochErr := readEpochDiffs(reader)
+		epochDiff, epochErr := readEpochDiff(reader)
 		if epochErr != nil {
 			return errors.Wrapf(epochErr, "failed to parse epochDiffs from bytes")
 		}
-		epochDiffsConsumer(epochDiffs)
+		epochDiffsConsumer(epochDiff)
 	}
 
 	activityLog, err := readActivityLog(reader)
@@ -168,8 +168,8 @@ func readOutputsWithMetadatas(reader io.ReadSeeker) (outputMetadatas []*ledger.O
 	return
 }
 
-// readEpochDiffs consumes an EpochDiff of an epoch from the given reader.
-func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err error) {
+// readEpochDiff consumes an EpochDiff of an epoch from the given reader.
+func readEpochDiff(reader io.ReadSeeker) (epochDiff *ledger.EpochDiff, err error) {
 	spent := make([]*ledger.OutputWithMetadata, 0)
 	created := make([]*ledger.OutputWithMetadata, 0)
 
@@ -203,7 +203,7 @@ func readEpochDiffs(reader io.ReadSeeker) (epochDiffs *ledger.EpochDiff, err err
 		i += len(c)
 	}
 
-	epochDiffs = ledger.NewEpochDiff(spent, created)
+	epochDiff = ledger.NewEpochDiff(spent, created)
 
 	return
 }
