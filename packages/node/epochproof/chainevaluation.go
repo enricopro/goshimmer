@@ -60,6 +60,7 @@ func (c *competingECCTracker) updateCompetingECSupporters(proof supportersProof,
 		}
 		ecSupporters = append(ecSupporters, suppArray...)
 		epochSupporters[ec] = ecSupporters
+		c.competingECSupporters.Set(ei, epochSupporters)
 	}
 }
 
