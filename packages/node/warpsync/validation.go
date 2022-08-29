@@ -49,8 +49,7 @@ func (m *Manager) ValidateBackwards(ctx context.Context, start, end epoch.Index,
 			peerID := commitment.neighbor.Peer.ID()
 			commitmentEI := ecRecord.EI()
 			if m.isCommitmentInvalid(peerID, commitmentEI, start, end, validPeers, ecRecord) {
-
-			activePeers.Add(peerID)
+				activePeers.Add(peerID)
 				continue
 			}
 
