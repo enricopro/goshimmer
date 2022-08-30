@@ -68,6 +68,7 @@ func WithSupportersInProof(supportersInProof uint) options.Option[Manager] {
 		m.supportersInProof = supportersInProof
 	}
 }
+
 func (m *Manager) RequestECChain(ctx context.Context, ei epoch.Index, competingECRecord *epoch.ECRecord) error {
 	m.startRetrievingSupporters()
 	defer m.stopRetrievingSupporters()

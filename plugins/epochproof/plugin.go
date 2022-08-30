@@ -40,8 +40,8 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(func(t *tangleold.Tangle, p2pManager *p2p.Manager) *epochproof.Manager {
-			return epochproof.NewManager(p2pManager, deps.WarpsyncMgr, deps.NotarizationMgr, Plugin.Logger(), epochproof.WithSupportersInProof(Parameters.SupportersInProof))
+		if err := event.Container.Provide(func(p2pManager *p2p.Manager, warpsyncMgr *warpsync.Manager, notarizationMgr *notarization.Manager) *epochproof.Manager {
+			return epochproof.NewManager(p2pManager, warpsyncMgr, notarizationMgr, Plugin.Logger(), epochproof.WithSupportersInProof(Parameters.SupportersInProof))
 		}); err != nil {
 			Plugin.Panic(err)
 		}
