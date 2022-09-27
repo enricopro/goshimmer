@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -41,7 +41,7 @@ type Engine struct {
 	Ledger              *ledger.Ledger
 	GenesisCommitment   *commitment.Commitment
 	BlockStorage        *database.PersistentEpochStorage[models.BlockID, models.Block, *models.BlockID, *models.Block]
-	Inbox               *inbox.Inbox
+	Filter              *filter.Filter
 	NotarizationManager *notarization.Manager
 	SnapshotManager     *snapshot.Manager
 	EvictionManager     *eviction.Manager[models.BlockID]
@@ -114,9 +114,9 @@ func (i *Engine) IsSynced() (isBootstrapped bool) {
 }
 
 func (i *Engine) initInbox() {
-	i.Inbox = inbox.New()
+	i.Filter = filter.New()
 
-	i.Events.Inbox = i.Inbox.Events
+	i.Events.Inbox = i.Filter.Events
 }
 
 func (i *Engine) initDatabaseManager() {
@@ -337,7 +337,7 @@ func (i *Engine) initTipManager() {
 }
 
 func (i *Engine) ProcessBlockFromPeer(block *models.Block, neighbor *p2p.Neighbor) {
-	i.Inbox.ProcessReceivedBlock(block, neighbor)
+	i.Filter.ProcessReceivedBlock(block, neighbor)
 }
 
 func (i *Engine) Block(id models.BlockID) (block *models.Block, exists bool) {

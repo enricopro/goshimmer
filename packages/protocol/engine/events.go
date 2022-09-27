@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/congestioncontrol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/inbox"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tipmanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
@@ -17,7 +17,7 @@ import (
 type Events struct {
 	Error *event.Linkable[error, Events, *Events]
 
-	Inbox               *inbox.Events
+	Inbox               *filter.Events
 	Ledger              *ledger.Events
 	Tangle              *tangle.Events
 	Consensus           *consensus.Events
@@ -35,7 +35,7 @@ var NewEvents = event.LinkableConstructor(func() (newEvents *Events) {
 	return &Events{
 		Error: event.NewLinkable[error, Events, *Events](),
 
-		Inbox:               inbox.NewEvents(),
+		Inbox:               filter.NewEvents(),
 		Ledger:              ledger.NewEvents(),
 		Tangle:              tangle.NewEvents(),
 		Consensus:           consensus.NewEvents(),
