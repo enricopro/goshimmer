@@ -1,6 +1,7 @@
 package blockfactory
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -126,6 +127,7 @@ func (f *Factory) tryGetReferences(p payload.Payload, parentsCount int) (referen
 	if err == nil {
 		return references, nil
 	}
+	fmt.Println(">>>> cannot get references in tryGetReferences", err)
 	f.Events.Error.Trigger(errors.Errorf("could not get references: %w", err))
 
 	timeout := time.NewTimer(f.optsTipSelectionTimeout)
