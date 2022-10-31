@@ -38,7 +38,7 @@ func getOnlineHandler(c echo.Context, manaType manamodels.Type) error {
 
 		resp = append(resp, jsonmodels.OnlineIssuerStr{
 			ShortID: knownPeer.String(),
-			ID:      base58.Encode(knownPeer.Bytes()),
+			ID:      base58.Encode(lo.PanicOnErr(knownPeer.Bytes())),
 			Mana:    manaValue,
 		})
 	}

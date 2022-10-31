@@ -17,11 +17,11 @@ import (
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
 	engineCallback           func() *engine.Engine
-	latestEpochIndexCallback func() (epoch.Index, error)
+	latestEpochIndexCallback func() epoch.Index
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
-func NewReferenceProvider(engineCallback func() *engine.Engine, latestEpochIndexCallback func() (epoch.Index, error)) (newInstance *ReferenceProvider) {
+func NewReferenceProvider(engineCallback func() *engine.Engine, latestEpochIndexCallback func() epoch.Index) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
 		engineCallback:           engineCallback,
 		latestEpochIndexCallback: latestEpochIndexCallback,
@@ -91,10 +91,7 @@ func (r *ReferenceProvider) weakParentsFromUnacceptedInputs(payload payload.Payl
 				continue
 			}
 
-			committableEpoch, err := r.latestEpochIndexCallback()
-			if err != nil {
-				return nil, err
-			}
+			committableEpoch := r.latestEpochIndexCallback()
 
 			if latestAttachment.ID().Index() <= committableEpoch {
 				continue
@@ -197,12 +194,7 @@ func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (block
 		return blockID, errors.Newf("failed to get earliest attachment for %s", txID)
 	}
 
-	committableEpoch, err := r.latestEpochIndexCallback()
-	if err != nil {
-		return blockID, err
-	}
-
-	if block.ID().Index() <= committableEpoch {
+	if committableEpoch := r.latestEpochIndexCallback(); block.ID().Index() <= r.latestEpochIndexCallback() {
 		return models.EmptyBlockID, errors.Errorf("attachment of %s with %s is too far in the past as current committable epoch is %d", txID, block.ID(), committableEpoch)
 	}
 

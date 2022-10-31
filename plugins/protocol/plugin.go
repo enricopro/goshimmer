@@ -47,7 +47,6 @@ func init() {
 }
 
 func provide(n *p2p.Manager) (p *protocol.Protocol) {
-
 	cacheTimeProvider := database.NewCacheTimeProvider(DatabaseParameters.ForceCacheTime)
 
 	if Parameters.GenesisTime > 0 {
@@ -64,7 +63,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		protocol.WithEngineOptions(
 			engine.WithNotarizationManagerOptions(
 				notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommittableAge),
-				notarization.BootstrapWindow(NotarizationParameters.BootstrapWindow),
 			),
 			engine.WithBootstrapThreshold(Parameters.BootstrapWindow),
 			engine.WithTSCManagerOptions(
@@ -79,7 +77,7 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 				ledger.WithVM(new(devnetvm.VM)),
 				ledger.WithCacheTimeProvider(cacheTimeProvider),
 			),
-			engine.WithSnapshotDepth(NotarizationParameters.SnapshotDepth),
+			engine.WithSnapshotDepth(Parameters.Snapshot.Depth),
 			engine.WithSybilProtectionOptions(
 				sybilprotection.WithActivityTrackerOptions(
 					activitytracker.WithActivityWindow(Parameters.ValidatorActivityWindow),
@@ -99,7 +97,6 @@ func provide(n *p2p.Manager) (p *protocol.Protocol) {
 		),
 		protocol.WithBaseDirectory(DatabaseParameters.Directory),
 		protocol.WithSnapshotPath(Parameters.Snapshot.Path),
-		protocol.WithSettingsFileName(DatabaseParameters.Settings.FileName),
 	)
 
 	return p

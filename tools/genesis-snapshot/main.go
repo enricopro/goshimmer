@@ -3,11 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
-	"github.com/iotaledger/goshimmer/packages/core/activitylog"
-	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-
+	"github.com/iotaledger/hive.go/core/generics/lo"
 	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/mr-tron/base58"
 
@@ -15,6 +13,14 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshot"
+	"github.com/iotaledger/goshimmer/packages/core/snapshot/creator"
+	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/goshimmer/packages/storage"
+	ledgerModels "github.com/iotaledger/goshimmer/packages/storage/models"
 )
 
 const (
@@ -98,16 +104,18 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	err = creator.CreateSnapshot(snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+	creator.CreateSnapshot(createTempEngine(), snapshotFileName, genesisTokenAmount, genesisSeed, manaDistribution)
+
+	diagnosticPrintSnapshotFromFile(snapshotFileName)
+}
+
+func createTempEngine() *engine.Engine {
+	chainStorage, err := storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
 	if err != nil {
-		log.Fatal(fmt.Errorf("failed to create snapshot: %w", err))
-		return
+		panic(err)
 	}
 
-	err = readSnapshotFromFile(snapshotFileName)
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to read snapshot: %w", err))
-	}
+	return engine.New(chainStorage)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
@@ -136,24 +144,42 @@ func init() {
 	}
 }
 
-func readSnapshotFromFile(filePath string) (err error) {
-	outputWithMetadataConsumer := func(outputWithMetadatas []*ledger.OutputWithMetadata) {
-		fmt.Println(outputWithMetadatas)
-	}
-	epochDiffConsumer := func(epochDiffs *ledger.EpochDiff) {
-		fmt.Println(epochDiffs)
-	}
-	headerConsumer := func(h *ledger.SnapshotHeader) {
-		fmt.Println(h)
-	}
-	activityLogConsumer := func(activity activitylog.SnapshotEpochActivity) {
-		fmt.Println(activity)
-	}
-	sepsConsumer := func(s *snapshot.SolidEntryPoints) {
-		fmt.Println(s)
-	}
+func diagnosticPrintSnapshotFromFile(filePath string) {
+	e := createTempEngine()
+	fileHandle := lo.PanicOnErr(os.Open(filePath))
+	snapshot.ReadSnapshot(fileHandle, e)
 
-	err = snapshot.LoadSnapshot(filePath, headerConsumer, sepsConsumer, outputWithMetadataConsumer, epochDiffConsumer, activityLogConsumer)
+	fmt.Println("--- Settings ---")
+	fmt.Printf("%+v\n", e.Storage.Settings)
 
-	return
+	fmt.Println("--- Commitments ---")
+	fmt.Printf("%+v\n", lo.PanicOnErr(e.Storage.Commitments.Load(0)))
+
+	fmt.Println("--- Ledgerstate ---")
+	e.Ledger.Storage.ForEachOutputID(func(outputID utxo.OutputID) bool {
+		e.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+			e.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(m *ledger.OutputMetadata) {
+				fmt.Printf("%+v\n%#v\n", o, m)
+			})
+		})
+		return true
+	})
+
+	fmt.Println("--- SEPs ---")
+	e.Storage.SolidEntryPoints.Stream(0, func(b *models.Block) {
+		fmt.Printf("%+v\n", b)
+	})
+
+	fmt.Println("--- ActivityLog ---")
+	e.Storage.ActiveNodes.Stream(0, func(id identity.ID) {
+		fmt.Printf("%d: %+v\n", 0, id)
+	})
+
+	fmt.Println("--- Diffs ---")
+	e.Storage.LedgerStateDiffs.StreamSpentOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+		fmt.Printf("%d: %+v\n", 0, owm)
+	})
+	e.Storage.LedgerStateDiffs.StreamCreatedOutputs(0, func(owm *ledgerModels.OutputWithMetadata) {
+		fmt.Printf("%d: %+v\n", 0, owm)
+	})
 }

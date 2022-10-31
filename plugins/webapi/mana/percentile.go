@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // getPercentileHandler handles the request.
@@ -51,7 +52,7 @@ func getPercentileHandler(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, jsonmodels.GetPercentileResponse{
 		ShortIssuerID:      ID.String(),
-		IssuerID:           base58.Encode(ID.Bytes()),
+		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessPercentile,
 		AccessTimestamp:    tAccess.Unix(),
 		Consensus:          consensusPercentile,

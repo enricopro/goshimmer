@@ -1,5 +1,7 @@
 package protocol
 
+/*
+
 import (
 	"testing"
 
@@ -44,3 +46,5 @@ func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (n
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+*/

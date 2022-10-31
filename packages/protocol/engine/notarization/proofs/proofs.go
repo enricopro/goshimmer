@@ -1,5 +1,6 @@
-package notarization
+package proofs
 
+/*
 import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
@@ -30,7 +31,7 @@ func (m *Manager) GetBlockInclusionProof(blockID models.BlockID) (*CommitmentPro
 	}
 	t := block.IssuingTime()
 	ei = epoch.IndexFromTime(t)
-	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
+	proof, err := m.commitmentFactory.ProofTangleRoot(ei, blockID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,19 +44,19 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	m.ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(txMeta *ledger.TransactionMetadata) {
 		ei = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
-	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
+	proof, err := m.commitmentFactory.ProofStateMutationRoot(ei, transactionID)
 	if err != nil {
 		return nil, err
 	}
 	return proof, nil
 }
 
-func (f *CommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
+func (f *commitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
 	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))
 }
 
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
-func (f *CommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
+func (f *commitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root, exists := f.commitmentTrees.Get(ei)
 	if !exists {
@@ -70,7 +71,7 @@ func (f *CommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) 
 }
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
-func (f *CommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
+func (f *commitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -86,7 +87,7 @@ func (f *CommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.Tra
 }
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-func (f *CommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
+func (f *commitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.BlockID) (*CommitmentProof, error) {
 	committmentTrees, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot get commitment trees for epoch %d", ei)
@@ -102,15 +103,17 @@ func (f *CommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID models.Block
 }
 
 // VerifyTangleRoot verify the provided merkle proof against the tangle root.
-func (f *CommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
+func (f *commitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID models.BlockID) bool {
 	key, _ := blockID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
 
 // VerifyStateMutationRoot verify the provided merkle proof against the state mutation root.
-func (f *CommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
+func (f *commitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
 	key := transactionID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+*/

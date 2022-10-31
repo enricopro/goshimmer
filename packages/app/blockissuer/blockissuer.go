@@ -45,8 +45,8 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 		Events:   NewEvents(),
 		identity: localIdentity,
 		protocol: protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() (epoch.Index, error) {
-			return protocol.Engine().NotarizationManager.LatestCommitableEpochIndex()
+		referenceProvider: blockfactory.NewReferenceProvider(func() *engine.Engine { return protocol.Engine() }, func() epoch.Index {
+			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
 		}),
 	}, opts, func(i *BlockIssuer) {
 		i.Factory = blockfactory.NewBlockFactory(
@@ -59,16 +59,16 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 			},
 			i.referenceProvider.References,
 			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
-				latestCommitment, err := i.protocol.Engine().NotarizationManager.GetLatestEC()
+				latestCommitment := i.protocol.Engine().Storage.Settings.LatestCommitment()
 				if err != nil {
 					return nil, 0, err
 				}
-				confirmedEpochIndex, err := i.protocol.Engine().NotarizationManager.LatestConfirmedEpochIndex()
+				confirmedEpochIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedEpoch()
 				if err != nil {
 					return nil, 0, err
 				}
 
-				return latestCommitment.Commitment(), confirmedEpochIndex, nil
+				return latestCommitment, confirmedEpochIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
 
@@ -95,7 +95,7 @@ func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opt
 }
 
 func (f *BlockIssuer) setupEvents() {
-	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure[*models.Block](func(block *models.Block) {
+	f.RateSetter.Events.BlockIssued.Attach(event.NewClosure(func(block *models.Block) {
 		f.protocol.ProcessBlock(block, f.identity.ID())
 	}))
 }
@@ -156,7 +156,6 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	defer f.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
-
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
@@ -192,7 +191,6 @@ func (f *BlockIssuer) IssueBlockAndAwaitBlockToBeIssued(block *models.Block, max
 	defer f.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
 
 	err := f.RateSetter.IssueBlock(block)
-
 	if err != nil {
 		return errors.Errorf("failed to issue block %s: %w", block.ID().String(), err)
 	}
@@ -212,6 +210,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
+
 func WithRateSetterOptions(rateSetterOptions ...options.Option[ratesetter.RateSetter]) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsRateSetterOptions = rateSetterOptions

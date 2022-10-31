@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
+	"github.com/iotaledger/hive.go/core/generics/lo"
 )
 
 // getManaHandler handles the request.
@@ -44,7 +45,7 @@ func getManaHandler(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, jsonmodels.GetManaResponse{
 		ShortIssuerID:      ID.String(),
-		IssuerID:           base58.Encode(ID.Bytes()),
+		IssuerID:           base58.Encode(lo.PanicOnErr(ID.Bytes())),
 		Access:             accessMana,
 		AccessTimestamp:    tAccess.Unix(),
 		Consensus:          consensusMana,

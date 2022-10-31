@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/core/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
@@ -45,15 +46,11 @@ type TipManager struct {
 	optsWidth                          int
 }
 
-func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRetrieverFunc, timeRetriever timeRetrieverFunc, isBootstrappedFunc func() bool, opts ...options.Option[TipManager]) *TipManager {
+func New(blockRetriever blockRetrieverFunc, opts ...options.Option[TipManager]) *TipManager {
 	return options.Apply(&TipManager{
 		Events: NewEvents(),
 
-		tangle:             tangle,
-		acceptanceGadget:   gadget,
 		blockRetrieverFunc: blockRetriever,
-		timeRetrieverFunc:  timeRetriever,
-		isBootstrappedFunc: isBootstrappedFunc,
 
 		tips: randommap.New[*scheduler.Block, *scheduler.Block](),
 		// TODO: reintroduce TipsConflictTracker
@@ -62,6 +59,14 @@ func New(tangle *tangle.Tangle, gadget acceptanceGadget, blockRetriever blockRet
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
 	}, opts)
+}
+
+func (t *TipManager) ActivateEngine(engine *engine.Engine) {
+	t.tips = randommap.New[*scheduler.Block, *scheduler.Block]()
+	t.tangle = engine.Tangle
+	t.acceptanceGadget = engine.Consensus.Gadget
+	t.timeRetrieverFunc = engine.Clock.AcceptedTime
+	t.isBootstrappedFunc = engine.IsBootstrapped
 }
 
 func (t *TipManager) AddTip(block *scheduler.Block) {

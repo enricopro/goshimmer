@@ -28,13 +28,6 @@ func New(opts ...options.Option[CongestionControl]) (congestionControl *Congesti
 	}, opts)
 }
 
-func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
-
-	return c.scheduler
-}
-
 func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.schedulerMutex.Lock()
 	defer c.schedulerMutex.Unlock()
@@ -44,7 +37,7 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	}
 
 	c.scheduler = scheduler.New(
-		engine.EvictionManager,
+		engine.EvictionState,
 		engine.Consensus.IsBlockAccepted,
 		func() (manaDistribution map[identity.ID]int64) {
 			return firstReturn(engine.ManaTracker.GetManaMap(manamodels.AccessMana))
@@ -67,6 +60,13 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 
 	c.scheduler.Start()
+}
+
+func (c *CongestionControl) Scheduler() *scheduler.Scheduler {
+	c.schedulerMutex.RLock()
+	defer c.schedulerMutex.RUnlock()
+
+	return c.scheduler
 }
 
 func (c *CongestionControl) Block(id models.BlockID) (block *scheduler.Block, exists bool) {
