@@ -193,6 +193,9 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 // firstValidAttachment returns the first valid attachment of the given transaction.
 func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID) (blockID models.BlockID, err error) {
 	block := r.engineCallback().Tangle.Booker.GetEarliestAttachment(txID)
+	if block == nil {
+		return blockID, errors.Newf("failed to get earliest attachment for %s", txID)
+	}
 
 	committableEpoch, err := r.latestEpochIndexCallback()
 	if err != nil {
