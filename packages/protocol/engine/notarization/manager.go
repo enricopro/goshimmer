@@ -420,12 +420,16 @@ func (m *Manager) OnConflictAccepted(conflictID utxo.TransactionID) {
 	m.triggerEpochEvents(epochCommittableEvents, manaVectorUpdateEvents)
 }
 
-// OnConflictConfirmed is the handler for conflict confirmed event.
+// OnConflictConfirmed is the handler for conflict accepted event.
 func (m *Manager) onConflictAccepted(conflictID utxo.TransactionID) ([]*EpochCommittableEvent, []*mana.ManaVectorUpdateEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getConflictEI(conflictID)
+	ei, err := m.getConflictEI(conflictID)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to get conflict epoch index: %w", err))
+		return nil, nil
+	}
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.Events.Error.Trigger(errors.Errorf("conflict confirmed in already committed epoch %d", ei))
@@ -439,7 +443,11 @@ func (m *Manager) OnConflictCreated(conflictID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getConflictEI(conflictID)
+	ei, err := m.getConflictEI(conflictID)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to get conflict epoch index on conflict creation: %w", err))
+		return
+	}
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.Events.Error.Trigger(errors.Errorf("conflict created in already committed epoch %d", ei))
@@ -459,7 +467,11 @@ func (m *Manager) onConflictRejected(conflictID utxo.TransactionID) ([]*EpochCom
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getConflictEI(conflictID)
+	ei, err := m.getConflictEI(conflictID)
+	if err != nil {
+		m.Events.Error.Trigger(errors.Errorf("failed to get conflict epoch index: %w", err))
+		return nil, nil
+	}
 
 	if m.isEpochAlreadyCommitted(ei) {
 		m.Events.Error.Trigger(errors.Errorf("conflict rejected in already committed epoch %d", ei))
@@ -605,9 +617,12 @@ func (m *Manager) isOldEnough(ei epoch.Index, issuingTime ...time.Time) (oldEnou
 	return true
 }
 
-func (m *Manager) getConflictEI(conflictID utxo.TransactionID) epoch.Index {
+func (m *Manager) getConflictEI(conflictID utxo.TransactionID) (epoch.Index, error) {
 	earliestAttachment := m.tangle.GetEarliestAttachment(conflictID)
-	return epoch.IndexFromTime(earliestAttachment.IssuingTime())
+	if earliestAttachment == nil {
+		return 0, errors.Errorf("no earliest attachment found for conflict %s", conflictID)
+	}
+	return epoch.IndexFromTime(earliestAttachment.IssuingTime()), nil
 }
 
 func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
