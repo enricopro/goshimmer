@@ -36,10 +36,10 @@ import (
 // region Engine /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Engine struct {
-	Events             *Events
-	Storage            *storage.Storage
-	Ledger             *ledger.Ledger
-	Inbox              *inbox.Inbox
+	Events  *Events
+	Storage *storage.Storage
+	Ledger  *ledger.Ledger
+	Inbox   *inbox.Inbox
 	// SnapshotManager     *snapshot.Manager
 	EvictionState       *eviction.State[models.BlockID]
 	EntryPointsManager  *EntryPointsManager
@@ -75,7 +75,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 			Events:             NewEvents(),
 			ValidatorSet:       validator.NewSet(),
 			EvictionState:      eviction.NewState[models.BlockID](),
-			EntryPointsManager: NewEntryPointsManager(),
+			EntryPointsManager: NewEntryPointsManager(storageInstance),
 			Storage:            storageInstance,
 
 			optsEntryPointsDepth:      3,
@@ -95,6 +95,7 @@ func New(storageInstance *storage.Storage, opts ...options.Option[Engine]) (engi
 		(*Engine).initSybilProtection,
 		(*Engine).initEvictionManager,
 		(*Engine).initBlockRequester,
+		(*Engine).initSolidEntryPointsManager,
 	)
 }
 
@@ -110,10 +111,15 @@ func (e *Engine) IsSynced() (isBootstrapped bool) {
 func (e *Engine) Evict(index epoch.Index) {
 	solidEntryPoints := set.NewAdvancedSet[models.BlockID]()
 	for i := index; i > index-epoch.Index(e.optsEntryPointsDepth); i-- {
-		solidEntryPoints.AddAll(e.EntryPointsManager.SolidEntryPoints(i))
+		solidEntryPoints.AddAll(e.EntryPointsManager.LoadAll(i))
 	}
 
 	e.EvictionState.EvictUntil(index, solidEntryPoints)
+}
+
+func (e *Engine) Shutdown() {
+	e.Ledger.Shutdown()
+	e.Storage.Shutdown()
 }
 
 func (e *Engine) initInbox() {
@@ -224,19 +230,19 @@ func (e *Engine) initNotarizationManager() {
 func (e *Engine) initManaTracker() {
 	e.ManaTracker = mana.NewTracker(e.Ledger, e.Storage, e.optsManaTrackerOptions...)
 
-	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.ManaTracker.UpdateConsensusWeights))
 	e.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(e.ManaTracker.UpdateMana))
 }
 
 func (e *Engine) initSybilProtection() {
-	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.ManaTracker.GetConsensusMana, e.optsSybilProtectionOptions...)
+	e.SybilProtection = sybilprotection.New(e.ValidatorSet, e.Clock.RelativeAcceptedTime, e.optsSybilProtectionOptions...)
 
+	e.Storage.Permanent.Events.ConsensusWeightsUpdated.Hook(event.NewClosure(e.SybilProtection.UpdateConsensusWeights))
 	e.Events.Tangle.BlockDAG.BlockSolid.Attach(event.NewClosure(e.SybilProtection.TrackActiveValidators))
 }
 
 func (e *Engine) initEvictionManager() {
 	e.NotarizationManager.Events.EpochCommitted.Attach(event.NewClosure(func(commitment *commitment.Commitment) {
-		e.EvictionState.EvictUntil(commitment.Index(), e.EntryPointsManager.SolidEntryPoints(commitment.Index()))
+		e.EvictionState.EvictUntil(commitment.Index(), e.EntryPointsManager.LoadAll(commitment.Index()))
 	}))
 
 	e.Events.EvictionManager = e.EvictionState.Events
@@ -256,6 +262,16 @@ func (e *Engine) initBlockRequester() {
 	}))
 
 	e.Events.BlockRequester = e.BlockRequester.Events
+}
+
+func (e *Engine) initSolidEntryPointsManager() {
+	e.Events.Consensus.Acceptance.BlockAccepted.Attach(event.NewClosure(func(block *acceptance.Block) {
+		e.EntryPointsManager.Insert(block.ID())
+	}))
+
+	e.Events.Tangle.BlockDAG.BlockOrphaned.Attach(event.NewClosure(func(block *blockdag.Block) {
+		e.EntryPointsManager.Remove(block.ID())
+	}))
 }
 
 func (e *Engine) ProcessBlockFromPeer(block *models.Block, source identity.ID) {
