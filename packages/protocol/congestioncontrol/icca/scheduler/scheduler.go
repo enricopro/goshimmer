@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -181,8 +182,12 @@ func (s *Scheduler) TotalBlocksCount() int {
 	return s.buffer.TotalBlocksCount()
 }
 
-func (s *Scheduler) Quanta(issuerID identity.ID) *big.Rat {
-	return big.NewRat(s.getAccessMana(issuerID), s.totalAccessManaRetrieveFunc())
+func (s *Scheduler) Quanta(issuerID identity.ID) (*big.Rat, error) {
+	totalAccessMana := s.totalAccessManaRetrieveFunc()
+	if totalAccessMana == 0 {
+		return big.NewRat(0, 1), errors.Errorf("division by zero, total access mana is 0")
+	}
+	return big.NewRat(s.getAccessMana(issuerID), totalAccessMana), nil
 }
 
 func (s *Scheduler) Deficit(issuerID identity.ID) *big.Rat {
@@ -448,7 +453,11 @@ func (s *Scheduler) schedule() *Block {
 	if rounds.Sign() > 0 {
 		// increment every issuer's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(s.Quanta(q.IssuerID()), rounds))
+			quanta, err := s.Quanta(q.IssuerID())
+			if err != nil {
+				panic(fmt.Errorf("could not schedule the message: %w", err))
+			}
+			s.updateDeficit(q.IssuerID(), new(big.Rat).Mul(quanta, rounds))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -459,7 +468,11 @@ func (s *Scheduler) schedule() *Block {
 
 	// increment the deficit for all issuers before schedulingIssuer one more time
 	for q := start; q != schedulingIssuer; q = s.buffer.Next() {
-		s.updateDeficit(q.IssuerID(), s.Quanta(q.IssuerID()))
+		quanta, err := s.Quanta(q.IssuerID())
+		if err != nil {
+			panic(fmt.Errorf("could not schedule the message: %w", err))
+		}
+		s.updateDeficit(q.IssuerID(), quanta)
 	}
 
 	// remove the block from the buffer and adjust issuer's deficit
@@ -494,8 +507,12 @@ func (s *Scheduler) selectIssuer(start *IssuerQueue) (rounds *big.Rat, schedulin
 			// compute how often the deficit needs to be incremented until the block can be scheduled
 			remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(block.Size()), 1), s.Deficit(q.IssuerID())), new(big.Rat))
 			// calculate how many rounds we need to skip to accumulate enough deficit.
+			quanta, err := s.Quanta(q.IssuerID())
+			if err != nil {
+				panic(fmt.Errorf("could not select Issuer: %w", err))
+			}
 			// Use for loop to account for float imprecision.
-			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.IssuerID())))
+			r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(quanta))
 			// find the first issuer that will be allowed to schedule a block
 			if r.Cmp(rounds) < 0 {
 				rounds = r

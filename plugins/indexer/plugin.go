@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
 )
 
-// PluginName is the name of the gossip plugin.
+// PluginName is the name of the indexer plugin.
 const PluginName = "Indexer"
 
 var (

@@ -21,7 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/tipmanager"
 )
 
-// PluginName is the name of the gossip plugin.
+// PluginName is the name of the protocol plugin.
 const PluginName = "Protocol"
 
 var (
